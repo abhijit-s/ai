@@ -1,0 +1,111 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors / IDEs
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# --- Node / TypeScript ---
+node_modules/
+.pnp
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.parcel-cache/
+.cache/
+*.tsbuildinfo
+.tscache/
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Packaging / build
+*.egg
+*.egg-info/
+.eggs/
+develop-eggs/
+sdist/
+wheels/
+share/python-wheels/
+pip-wheel-metadata/
+MANIFEST
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.ipynb_checkpoints/
+
+# Notebooks scratch
+*.ipynb_checkpoints
+
+# --- Misc tooling ---
+*.pid
+*.seed
+*.pid.lock
+.eslintcache
+.stylelintcache
+
+# Claude / AI tooling
+.claude/local/
+.claude/settings.local.json

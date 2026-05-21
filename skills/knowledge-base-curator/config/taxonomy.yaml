@@ -1,0 +1,386 @@
+# Canonical taxonomy for the KnowledgeBase vault.
+#
+# Edit this file when you evolve the taxonomy. The CLI in scripts/kb_curator.py
+# reads it for every audit/classify/apply operation.
+#
+# Slugs are kebab-case, lowercase, ASCII. Paths are relative to vault.root and
+# preserve the human-readable directory names (with spaces and "&").
+
+vault:
+  root: "/Users/a.salvi/Data/Obsidian/Vault/obsidian-vault-abhi.io/KnowledgeBase"
+  exclude_dirs:
+    - zAttachments
+    - .obsidian
+    - .trash
+    - .git
+
+# ---------------------------------------------------------------------------
+# Path conventions — how the skill maps directory layout to the
+# Pillar/Area/Sub-area/Topic hierarchy.
+#
+# `pillar_pattern` is a regex applied to top-level directory names. If it
+# matches, capture group 1 is treated as the human-readable pillar name; the
+# slug comes from `taxonomy.yaml > pillars`. If you don't number your pillars,
+# set this to `^(.+)$` to accept any top-level directory.
+#
+# `sub_area_pattern` applies the same logic to the directory level below an
+# area. Leave it at the default to keep numbered sub-areas; set to null to
+# treat every intermediate directory as a `topic` instead of a `sub_area`.
+# ---------------------------------------------------------------------------
+path_conventions:
+  pillar_pattern: '^\d{2}-(.+)$'
+  sub_area_pattern: '^\d{2}-(.+)$'
+  readme_filename: README.md
+
+# ---------------------------------------------------------------------------
+# Link syntax — which form of cross-note links the vault uses.
+#   obsidian  → [[Note Stem]] and [[Note Stem|display]]
+#   markdown  → [display](Note%20Stem.md)   (relative-path Markdown links)
+#   none      → disable link checking / repair entirely
+# ---------------------------------------------------------------------------
+link_syntax:
+  type: obsidian
+
+# ---------------------------------------------------------------------------
+# Slug casing — applied to category / pillar / sub_area / topic / tag values.
+#   kebab → like-this
+#   snake → like_this
+#   camel → likeThis
+# ---------------------------------------------------------------------------
+slug_case: kebab
+
+# ---------------------------------------------------------------------------
+# Where `created` / `updated` come from in `enrich`.
+#   git    → git log --follow (recommended when the vault is in git)
+#   mtime  → filesystem mtime / first observed (fallback when no git)
+#   none   → skip date derivation entirely
+# ---------------------------------------------------------------------------
+dates:
+  source: git
+
+frontmatter:
+  # Required on every note.
+  required: [title, category, tags]
+  # Optional but auto-derived by `enrich` (path / git / tags).
+  derived: [pillar, sub_area, topic, kind, created, updated]
+  optional: [aliases, spec, metadata]
+  casing:
+    category: kebab-case
+    pillar: kebab-case
+    sub_area: kebab-case
+    topic: kebab-case
+    kind: kebab-case
+    tags: kebab-case
+  rules:
+    # First tag should mirror the category for grep-ability.
+    first_tag_mirrors_category: true
+    # READMEs additionally carry this tag.
+    readme_extra_tag: index
+  # Derivation policy — `enrich` reads these and applies the rules.
+  # `pillar`   ← from path level 1 (the NN-Pillar directory)
+  # `sub_area` ← from path level 3 if its name matches /^\d{2}-(.+)/
+  # `topic`    ← from path level 3 or 4 if not a numbered sub-area
+  # `kind`     ← one of: index | crash-course | deep-dive | reference | note
+  # `created`  ← `git log --diff-filter=A --format=%aI <file>` (oldest)
+  # `updated`  ← `git log -1 --format=%aI <file>`
+  kind_from_tag:
+    - index
+    - crash-course
+    - deep-dive
+    - reference
+
+pillars:
+  - slug: languages-runtimes
+    path: "01-Languages & Runtimes"
+    central_question: "How does this programming language or runtime behave?"
+    areas:
+      - slug: coding
+        path: Coding
+        central_question: "Cross-language coding practice and review."
+      - slug: golang
+        path: Golang
+        central_question: "Go language, runtime, and concurrency model."
+      - slug: java-frameworks
+        path: Java & Frameworks
+        central_question: "JVM, Spring, and Java ecosystem."
+      - slug: python
+        path: Python
+        central_question: "Python language and idioms."
+      - slug: reactive
+        path: Reactive
+        central_question: "Reactive programming and event-driven stacks."
+
+  - slug: architecture-system-design
+    path: "02-Architecture & System Design"
+    central_question: "How do we design systems that meet non-functional requirements?"
+    areas:
+      - slug: api
+        path: API
+        central_question: "API design, gateways, signing, contracts."
+      - slug: architecture-design
+        path: Architecture & Design
+        central_question: "Architectural patterns and design principles."
+      - slug: distributed-systems
+        path: Distributed Systems
+        central_question: "Consensus, ordering, idempotency across nodes."
+      - slug: microservices
+        path: Microservices
+        central_question: "Service decomposition, orchestration, choreography."
+      - slug: system-design
+        path: System Design
+        central_question: "End-to-end system design patterns and trade-offs."
+
+  - slug: data
+    path: "03-Data"
+    central_question: "How do we store, move, and reason about data?"
+    areas:
+      - slug: caching
+        path: Caching
+        central_question: "Cache layers, eviction, invalidation."
+      - slug: data
+        path: Data
+        central_question: "Data engineering and data science foundations."
+      - slug: data-structures-algorithms
+        path: Data Structures & Algorithms
+        central_question: "Core DS&A concepts and complexity."
+      - slug: database-systems
+        path: Database Systems
+        central_question: "Relational, NoSQL, and distributed database internals."
+      - slug: kafka
+        path: Kafka
+        central_question: "Kafka brokers, topics, consumer groups, semantics."
+      - slug: postgres
+        path: Postgres
+        central_question: "PostgreSQL-specific behaviour and tuning."
+      - slug: redis
+        path: Redis
+        central_question: "Redis data structures and operational patterns."
+
+  - slug: networking-protocols
+    path: "04-Networking & Protocols"
+    central_question: "How do bytes get from A to B reliably?"
+    areas:
+      - slug: http
+        path: HTTP
+        central_question: "HTTP versions, polling, WebSockets, SSE."
+      - slug: istio
+        path: Istio
+        central_question: "Istio service mesh configuration and traffic policy."
+      - slug: networking
+        path: Networking
+        central_question: "TCP/IP fundamentals, DNS, kernel networking."
+      - slug: nginx
+        path: Nginx
+        central_question: "Nginx config, dynamic DNS, reverse-proxying."
+
+  - slug: infra-cloud-ops
+    path: "05-Infra, Cloud & Ops"
+    central_question: "How do we run software in production?"
+    areas:
+      - slug: aws
+        path: AWS
+        central_question: "AWS services and operational patterns."
+      - slug: cloud
+        path: Cloud
+        central_question: "Cloud-agnostic concepts and provider comparisons."
+      - slug: containers
+        path: Containers
+        central_question: "Container internals, Docker, OCI."
+      - slug: kubernetes
+        path: Kubernetes
+        central_question: "Kubernetes objects, controllers, operations."
+      - slug: linux
+        path: Linux
+        central_question: "Linux kernel, syscalls, userland."
+      - slug: os
+        path: OS
+        central_question: "Operating system concepts, generic across kernels."
+      - slug: security
+        path: Security
+        central_question: "Auth, identity, secrets, encryption."
+      - slug: setup
+        path: Setup
+        central_question: "Machine and dev-environment setup."
+      - slug: sre
+        path: SRE
+        central_question: "SRE practice, SLOs, incident response, DevOps."
+
+  - slug: engineering-practice-ai
+    path: "06-Engineering Practice & AI"
+    central_question: "How do we work effectively, and how do we leverage AI?"
+    areas:
+      - slug: ai
+        path: AI
+        central_question: "LLMs, GenAI, AI tooling, agentic systems."
+      - slug: devex
+        path: DevEx
+        central_question: "Developer experience, tooling, dotfiles, git."
+      - slug: engineering
+        path: Engineering
+        central_question: "Engineering management, concepts, blogs."
+      - slug: papers
+        path: Papers
+        central_question: "Academic and industry paper notes."
+      - slug: productivity
+        path: Productivity
+        central_question: "Personal productivity systems and reading."
+
+  - slug: reference-misc
+    path: "07-Reference & Misc"
+    central_question: "Reference material that doesn't fit cleanly elsewhere."
+    areas:
+      - slug: comp-sci
+        path: Comp Sci
+        central_question: "Foundational CS topics for reference."
+      - slug: food-for-thought
+        path: Food For Thought
+        central_question: "Provocations and meta-ideas to revisit."
+      - slug: knowledge-base
+        path: General
+        central_question: "Vault-level meta and how-to."
+      - slug: tech
+        path: Tech
+        central_question: "Tech notes that don't fit a specific area yet."
+      - slug: useful-commands
+        path: Useful Commands
+        central_question: "CLI snippets and one-liners."
+      - slug: videos
+        path: Videos
+        central_question: "Notes from talks and videos."
+
+# ---------------------------------------------------------------------------
+# Naming conventions for note filenames. Drives `naming check` and `rename`.
+# Filenames are derived from the frontmatter `title` field after normalisation.
+# ---------------------------------------------------------------------------
+naming:
+  replace_underscores: true   # foo_bar -> foo bar
+  strip_emoji_prefix: true    # remove leading 🚀/🌐/etc. (re-added by `emojis apply`)
+  max_length: 120
+  # Reserved characters get replaced with '-' regardless of this list.
+
+# ---------------------------------------------------------------------------
+# Emoji sigils per category. `emojis apply` injects these as a prefix on the
+# H1 of every note in that category. Idempotent: re-runs do not double-prefix.
+# Leave any category unset to skip emoji prefixing for it.
+# ---------------------------------------------------------------------------
+emojis:
+  golang: "🐹"
+  java-frameworks: "☕"
+  python: "🐍"
+  reactive: "♻️"
+  coding: "✍️"
+  api: "🔌"
+  architecture-design: "🏛️"
+  distributed-systems: "🕸️"
+  microservices: "🧩"
+  system-design: "📐"
+  caching: "⚡"
+  data: "📊"
+  data-structures-algorithms: "🧮"
+  database-systems: "🗄️"
+  kafka: "🪵"
+  postgres: "🐘"
+  redis: "🟥"
+  http: "🌐"
+  istio: "🧭"
+  networking: "📡"
+  nginx: "🚦"
+  aws: "☁️"
+  cloud: "☁️"
+  containers: "📦"
+  kubernetes: "⎈"
+  linux: "🐧"
+  os: "🖥️"
+  security: "🔐"
+  setup: "🛠️"
+  sre: "🚨"
+  ai: "🤖"
+  devex: "🧰"
+  engineering: "⚙️"
+  papers: "📄"
+  productivity: "🎯"
+  comp-sci: "🎓"
+  food-for-thought: "💭"
+  knowledge-base: "📚"
+  tech: "🧪"
+  useful-commands: "💻"
+  videos: "🎬"
+
+# ---------------------------------------------------------------------------
+# Content-based tag inference rules. `tags suggest <path>` matches each rule's
+# keywords against the file's title+body (case-insensitive substring); if any
+# keyword hits, the rule's tag is proposed.
+#
+# Keep rules narrow — broad keywords (e.g., "the") flood every note. Each rule
+# must justify itself: would a human searching by this tag expect this file?
+# ---------------------------------------------------------------------------
+inference_rules:
+  - tag: performance
+    keywords: [latency, throughput, p99, p95, benchmark, performance bottleneck, ops/sec]
+  - tag: security
+    keywords: [oauth, jwt, mtls, csrf, xss, authentication, authorization, attack surface]
+  - tag: deep-dive
+    keywords: ["deep dive", "deep-dive"]
+  - tag: crash-course
+    keywords: ["crash course", "crash-course"]
+  - tag: observability
+    keywords: [prometheus, grafana, opentelemetry, tracing, span, metrics, slog, datadog]
+  - tag: reliability
+    keywords: [circuit breaker, retry, backoff, idempotenc, slo, error budget]
+  - tag: concurrency
+    keywords: [goroutine, mutex, atomic, race condition, deadlock, channel]
+  - tag: memory
+    keywords: [heap, stack, allocator, garbage collect, mmap, escape analys]
+  - tag: networking
+    keywords: [tcp, udp, dns lookup, packet, mtu, congestion]
+  - tag: scalability
+    keywords: [horizontally scale, sharding, partition, autoscal, capacity planning]
+
+# Controlled tag vocabulary. Open tags are allowed in addition to these, but
+# the audit command warns when a tag appears only once across the vault.
+tags:
+  # Note kind / shape
+  - index
+  - crash-course
+  - deep-dive
+  - quick-blogs
+  - reference
+  - cheatsheet
+  - excalidraw
+  # Cross-cutting concerns
+  - performance
+  - security
+  - memory
+  - concurrency
+  - observability
+  - reliability
+  - scalability
+  # Topical (commonly co-occurring with categories above)
+  - golang
+  - runtime
+  - gmp
+  - scheduler
+  - gc
+  - goroutines
+  - channels
+  - language
+  - idioms
+  - llm
+  - genai
+  - claude
+  - kafka
+  - postgres
+  - redis
+  - kubernetes
+  - containers
+  - networking
+  - dns
+  - http
+  - nginx
+  - istio
+  - linux
+  - aws
+  - git
+  - quick-blogs
+  - dev-tools
+  - dotfiles
