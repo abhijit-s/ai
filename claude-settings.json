@@ -1,5 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
       "Bash(./bin/*:*)",
@@ -213,6 +217,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opusplan",
   "enableAllProjectMcpServers": true,
   "hooks": {
     "UserPromptSubmit": [
@@ -259,13 +264,23 @@
     "ruby-lsp@claude-plugins-official": false,
     "compound-engineering@compound-engineering-plugin": true,
     "gopls-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true
+    "frontend-design@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "engineering-compass@engineering-tools": true,
+    "feature-flow@engineering-tools": true,
+    "kb-sync@engineering-tools": true
   },
   "extraKnownMarketplaces": {
     "compound-engineering": {
       "source": {
         "source": "github",
         "repo": "EveryInc/compound-engineering-plugin"
+      }
+    },
+    "engineering-tools": {
+      "source": {
+        "source": "github",
+        "repo": "Easygo-Surge/engineering-tools"
       }
     }
   },
