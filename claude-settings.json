@@ -270,7 +270,8 @@
     "feature-flow@engineering-tools": true,
     "knowledge-audit@engineering-tools": true,
     "knowledge-capture@engineering-tools": true,
-    "decision-bridge@engineering-tools": true
+    "decision-bridge@engineering-tools": true,
+    "kb-curator@ai": true
   },
   "extraKnownMarketplaces": {
     "compound-engineering": {
@@ -283,6 +284,12 @@
       "source": {
         "source": "github",
         "repo": "Easygo-Surge/engineering-tools"
+      }
+    },
+    "ai": {
+      "source": {
+        "source": "github",
+        "repo": "abhijit-s/ai"
       }
     }
   },
