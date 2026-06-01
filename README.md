@@ -2,19 +2,19 @@
 
 Custom agents, skills, and workflows for Claude Code.
 
-## Install as a Plugin
+## Setup
 
-This repository serves as a Claude Code plugin marketplace. To install:
+This repository serves two roles:
+
+1. **Claude Code dotfiles** — `agents/`, `skills/`, `hooks/`, `AGENTS.md`, `mcp.json`, `claude-settings.json`, and `statusline.sh` are symlinked into `~/.claude/` via chezmoi (external at `https://github.com/abhijit-s/ai.git`).
+
+2. **Plugin marketplace** — standalone plugins under `plugins/` with a root `.claude-plugin/marketplace.json`.
+
+### Installing a Plugin
 
 ```bash
-# Add the marketplace
-/plugin marketplace add stephendolan/dotfiles
-
-# Install the plugin
-/plugin install stephendolan@dotfiles
+claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator
 ```
-
-Skills become available as `/stephendolan:commit`, `/stephendolan:create-pr`, etc.
 
 ### Local Development
 
@@ -26,24 +26,29 @@ claude --plugin-dir ./ai
 /reload-plugins
 ```
 
-### Plugin Structure
-
-The `ai/` directory is the plugin root:
+### Repository Structure
 
 ```
 ai/
-  .claude-plugin/
-    plugin.json          Plugin manifest
-  agents/                Subagent definitions
-  skills/                Slash command workflows and domain expertise
-  hooks/                 Event handlers
-  AGENTS.md              Shared instructions
-  mcp.json               MCP server definitions
-  claude-settings.json   Default settings
-  statusline.sh          Custom statusline
+├── .claude-plugin/
+│   └── marketplace.json      ← plugin marketplace manifest
+├── plugins/
+│   └── kb-curator/           ← Markdown vault curation plugin
+│       ├── .claude-plugin/
+│       │   └── plugin.json
+│       ├── skills/kb-curator/
+│       │   └── SKILL.md
+│       ├── scripts/          ← kb_curator.py Python package
+│       ├── config/
+│       └── references/
+├── agents/                   ← subagent definitions
+├── skills/                   ← global slash command workflows
+├── hooks/                    ← event handlers
+├── AGENTS.md
+├── mcp.json
+├── claude-settings.json
+└── statusline.sh
 ```
-
-> For the author's personal dotfiles setup, DotBot symlinks this directory to `~/.claude/`. Run `./install` from the repo root.
 
 ---
 
@@ -64,6 +69,9 @@ flowchart LR
         pub["/publish"]
         int["/interview"]
         dcr["/daily-claude-code-recap"]
+        go["/github-overview"]
+        nico["/nico"]
+        sn["/slack-notify"]
     end
 
     subgraph Agents
@@ -86,6 +94,12 @@ flowchart LR
         wcs["writing-claude-skills"]
         wcp["writing-claude-prompts"]
         wdoc["writing-documentation"]
+        tm["task-management"]
+        odl["order-daycare-lunch"]
+    end
+
+    subgraph Plugins
+        kbc["kb-curator"]
     end
 
     cm --> com
@@ -104,13 +118,15 @@ flowchart LR
     classDef workflow fill:#4a5568,stroke:#2d3748,color:#fff
     classDef agent fill:#3182ce,stroke:#2c5282,color:#fff
     classDef skill fill:#38a169,stroke:#276749,color:#fff
+    classDef plugin fill:#805ad5,stroke:#553c9a,color:#fff
 
-    class cm,cpr,fd,ri,ea,apr,rd,pub,int,dcr workflow
+    class cm,cpr,fd,ri,ea,apr,rd,pub,int,dcr,go,nico,sn workflow
     class ce,ca,cr,cf,ar,pr,pcr,com,prc,dr,docr,sk agent
-    class fdd,wcs,wcp,wdoc skill
+    class fdd,wcs,wcp,wdoc,tm,odl skill
+    class kbc plugin
 ```
 
-**Legend**: Workflows (gray) spawn Agents (blue) which load Domain Skills (green)
+**Legend**: Workflows (gray) spawn Agents (blue) which load Domain Skills (green). Plugins (purple) are independently installable.
 
 ---
 
@@ -129,6 +145,8 @@ flowchart LR
 | `/interview`               | Interview user about a plan before implementation  |
 | `/daily-claude-code-recap` | Summarize the day's Claude Code sessions           |
 | `/github-overview`         | GitHub PR dashboard for organization               |
+| `/nico`                    | General-purpose notification dispatcher (Slack, email) |
+| `/slack-notify`            | Send a structured notification to a Slack channel  |
 
 ### Execution Flow Examples
 
@@ -175,17 +193,28 @@ flowchart LR
 
 Domain skills provide expertise activated automatically by context.
 
-| Skill                      | Trigger                     |
-| -------------------------- | --------------------------- |
-| **frontend-design**        | Building web interfaces     |
-| **writing-documentation**  | Updating docs               |
-| **writing-claude-skills**  | Creating Claude Code skills |
-| **writing-claude-prompts** | Writing prompts for Claude  |
-| **cooking**                | Recipes and meal planning   |
-| **drama-triangle**         | Communication and conflict analysis |
-| **chartmogul-analytics**   | Analyzing revenue metrics   |
-| **task-management**        | GTD workflow with OmniFocus |
-| **order-daycare-lunch**    | School lunch ordering       |
+| Skill                      | Trigger                          |
+| -------------------------- | -------------------------------- |
+| **frontend-design**        | Building web interfaces          |
+| **writing-documentation**  | Updating docs                    |
+| **writing-claude-skills**  | Creating Claude Code skills      |
+| **writing-claude-prompts** | Writing prompts for Claude       |
+| **task-management**        | GTD workflow with OmniFocus      |
+| **order-daycare-lunch**    | School lunch ordering            |
+
+---
+
+## Plugins
+
+Plugins are independently installable units that bundle a skill, scripts, and configuration. Install from the marketplace:
+
+```bash
+claude plugin install https://github.com/abhijit-s/ai.git --plugin <plugin-name>
+```
+
+| Plugin          | Skill         | Purpose                                                                 |
+| --------------- | ------------- | ----------------------------------------------------------------------- |
+| **kb-curator**  | `/kb-curator` | Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any `.md` tree with YAML frontmatter. |
 
 ---
 
@@ -199,7 +228,7 @@ The `mcp.json` file defines MCP server connections:
 | **chartmogul**  | Revenue analytics             |
 | **helpscout**   | Customer support              |
 | **omnifocus**   | Task management               |
-| **superset**    | Data exploration              |
+| **superset**    | Data exploration               |
 | **ynab**        | Budget tracking               |
 
 Run `./generate-mcp.sh` to sync servers to Claude Desktop, Claude CLI, and Codex CLI.

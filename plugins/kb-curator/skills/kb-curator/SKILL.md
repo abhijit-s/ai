@@ -1,5 +1,5 @@
 ---
-name: knowledge-base-curator
+name: kb-curator
 description: Catalogue, classify, and curate a Markdown knowledge vault (Obsidian / mkdocs / any directory tree of .md files with YAML frontmatter). Use when auditing taxonomy, classifying new notes, repairing frontmatter, renaming files safely, checking broken wiki/Markdown links, detecting themes, injecting emoji sigils, evolving categories, or bootstrapping a taxonomy from an existing vault. Covers epistemology mapping, taxonomy drift, frontmatter schema, controlled tag vocabulary, README indexes, and link integrity.
 allowed-tools: Read, Edit, Write, Bash, Grep, Glob
 ---

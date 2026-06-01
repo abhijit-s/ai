@@ -173,7 +173,10 @@ For complex multi-file discovery, spawn a subagent rather than writing shell loo
 
 - **File searching**: Use `fd` instead of `find`. Faster, respects .gitignore, simpler syntax.
 - **Text searching**: Use `rg` (ripgrep) instead of `grep`. Use full language names with `--type` (e.g., `--type ruby` not `--type rb`).
-- **Syntax-aware searching**: Use `ast-grep` for structural code search.
+- **Syntax-aware searching**: Use in priority order:
+  + `fff-mcp`: For any file search, glob, or grep in the current git-indexed directory, use fff tools.
+  + `ast-grep` for structural code search.
+  (or a combination for efficiency)
 - **File viewing**: `bat` provides syntax highlighting and line numbers.
 - **Directory listings**: `eza` provides colorized output and git status integration.
 
@@ -189,3 +192,11 @@ For complex multi-file discovery, spawn a subagent rather than writing shell loo
 - **of** (OmniFocus CLI) - Task management, GTD workflow
 - **helpscout** (HelpScout CLI) - Customer support for Tuple
 - **ynab** (You Need A Budget CLI) - Personal budgeting
+
+## Vocabulary
+
+**Always expand acronyms on first use** in any response — inline, immediately after the acronym: "PSA (Pod Security Admission)", "LBC (AWS Load Balancer Controller)".
+
+If a project maintains a glossary file, append any new acronyms introduced during the session to it. Keep entries alphabetical: `**ACRONYM** — Full expansion. Brief definition.`
+
+Do not assume the reader knows an acronym, regardless of how common it seems in the domain.

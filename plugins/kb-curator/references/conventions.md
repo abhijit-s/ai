@@ -1,6 +1,6 @@
 # Vault conventions
 
-These are the rules the `knowledge-base-curator` skill enforces. They reflect what the vault already does in 80%+ of files — the skill exists to push the remaining 20% into line and to keep new material consistent from day one.
+These are the rules the `kb-curator` skill enforces. They reflect what the vault already does in 80%+ of files — the skill exists to push the remaining 20% into line and to keep new material consistent from day one.
 
 ## Directory shape
 

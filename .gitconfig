@@ -1,0 +1,6 @@
+[user]
+        email = s.abhijeet@gmail.com 
+        name = abhijit-s 
+        # signingkey = asdfsadf3423
+[core]
+        sshCommand = "ssh -i ~/.ssh/id_rsa"

@@ -59,7 +59,7 @@ If you add a write command, write the idempotence test first.
 
 The runtime has no required external dependencies. PyYAML is auto-detected — if present, it's used for richer YAML fidelity; if absent, the scoped `_MiniYaml` reader in `yaml_io.py` handles the project's actual schema.
 
-Adding a dependency is a non-trivial decision because the skill ships into many users' `~/.claude/` directories. If you must:
+Adding a dependency is a non-trivial decision because the plugin ships into users' `~/.claude/plugins/` directories. If you must:
 
 1. Make it optional (`[project.optional-dependencies]`).
 2. Detect at import time and fall back gracefully.
@@ -135,7 +135,7 @@ For commands that legitimately need multi-pass behaviour (e.g., `taxonomy refres
 
 ## Release / sharing
 
-The skill lives at `~/.claude/skills/knowledge-base-curator/`. There is no formal release; users fork the directory. When you make a backward-incompatible change to the config schema:
+The plugin is installed via `claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator` and cached under `~/.claude/plugins/cache/ai/kb-curator/<version>/`. When you make a backward-incompatible change to the config schema:
 
 1. Bump `__version__` in `kb_curator/__init__.py`.
 2. Note the breaking change at the top of `README.md`.

@@ -1,6 +1,6 @@
-# knowledge-base-curator
+# kb-curator
 
-A Claude Code skill for curating Markdown knowledge vaults — Obsidian, mkdocs-style, or any directory tree of `.md` files with YAML frontmatter.
+A Claude Code plugin for curating Markdown knowledge vaults — Obsidian, mkdocs-style, or any directory tree of `.md` files with YAML frontmatter.
 
 Catalogues, classifies, audits, repairs, renames, links, and tags notes. Driven by a single `taxonomy.yaml` you can hand-edit or auto-generate from an existing vault.
 
@@ -21,19 +21,21 @@ Zero non-stdlib Python dependencies. Single file at `scripts/kb_curator.py`. PyY
 
 ## Install
 
-The skill lives at `~/.claude/skills/knowledge-base-curator/`. Once present, Claude Code activates it whenever you mention the vault, frontmatter, tags, taxonomy, or any keyword in its description.
+```bash
+claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator
+```
 
-To use the CLI directly:
+Claude Code activates the skill whenever you mention the vault, frontmatter, tags, taxonomy, or any keyword in its description.
+
+To use the CLI directly, find the cached plugin path and run:
 
 ```bash
-python3 ~/.claude/skills/knowledge-base-curator/scripts/kb_curator.py <command>
+python3 ~/.claude/plugins/cache/ai/kb-curator/<version>/scripts/kb_curator.py <command>
 ```
 
 ## Quick start on an existing vault
 
 ```bash
-cd ~/.claude/skills/knowledge-base-curator
-
 # 1. Scan an arbitrary vault and emit a starter config.
 python3 scripts/kb_curator.py taxonomy init \
     --root /path/to/your/vault \
@@ -148,8 +150,9 @@ Each workflow is a few commands plus the judgement around them. Detailed step-by
 ## Architecture
 
 ```
-knowledge-base-curator/
-├── SKILL.md                # Agent guidance — when to activate, philosophy, workflows
+kb-curator/
+├── skills/kb-curator/
+│   └── SKILL.md            # Agent guidance — when to activate, philosophy, workflows
 ├── README.md               # This file
 ├── config/
 │   └── taxonomy.yaml       # Single source of policy
@@ -194,4 +197,4 @@ Every write command is idempotent:
 
 ## License
 
-This skill is part of one user's `~/.claude/skills/` collection. Fork freely.
+MIT. Source at `plugins/kb-curator/` in the [ai](https://github.com/abhijit-s/ai) repo.
