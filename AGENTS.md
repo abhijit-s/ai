@@ -1,5 +1,19 @@
 This file provides guidance to AI coding agents when working with code across all projects.
 
+## Command Tool Order (read first — applies to every bash command)
+
+Before writing any bash command that searches files or text, work through this order and stop at the first tool that fits:
+
+1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all search inside a git-indexed project
+2. **ast-grep** — syntax-aware structural search when fff MCP is insufficient
+3. **`rg`** (ripgrep) — full-text search; use full language names (`--type ruby`, not `--type rb`)
+4. **`fd`** — file discovery by name/pattern
+5. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
+
+This order is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent. The CLAUDE.md wording and hook wording are intentionally identical so there is no ambiguity.
+
+**Never reach for `grep` or `find` by default.** They are familiar but slower, `.gitignore`-unaware, and lack the structured output of modern alternatives. If you find yourself typing `grep -r` or `find .`, stop and use `rg` or `fd` instead.
+
 ## Core Philosophy
 
 **Complexity is not insight.** Smart people mistake elaborate solutions for wisdom. Ten-page memos that could be one. Factory classes wrapping factory classes. Abstractions for problems that don't exist yet.
@@ -61,21 +75,45 @@ Sub-agents consume their own context (not yours), can run simultaneously, and st
 | `chartmogul-analytics`   | Analyzing revenue metrics |
 | `cooking`                | Recipes and meal planning |
 
+## Documentation & Knowledge Routing
+
+**Never use the general-purpose agent for documentation or note-taking tasks.** Invoke the correct skill immediately — before any other action.
+
+| Intent | Context | Skill |
+| ------ | ------- | ----- |
+| Write / draft an ADR | Vault | `obsidian-adr` |
+| Make a note / capture this | Any | `obsidian-capture` |
+| Log a learning / "I learned that" | Any | `knowledge-capture:record-learning` |
+| Record a decision / "we decided" | Any | `knowledge-capture:record-decision` |
+| Write or update repo docs | Repo markdown files | `writing-documentation` → `documentation-refiner` agent |
+| Synthesize / connect dots across notes | Vault | `vault-deep-synthesis` |
+| Audit vault quality / find gaps | Vault | `knowledge-audit:audit-scan` |
+| Sync vault docs → repo `docs/ai-context/` | Surge repo | `surge-ai:sync-ai-context` |
+
+**Trigger phrases (case-insensitive) → skills:**
+
+- "write an ADR", "draft an ADR", "create an ADR" → `obsidian-adr`
+- "make a note", "note that", "capture this", "jot this down" → `obsidian-capture`
+- "I learned that", "record this learning", "log this learning" → `knowledge-capture:record-learning`
+- "we decided to", "record this decision", "capture this decision" → `knowledge-capture:record-decision`
+- "update the docs", "write documentation", "document this" → `writing-documentation`
+- "synthesize", "connect dots", "pull together notes" → `vault-deep-synthesis`
+
 ## Tooling Preferences
 
 ### Tool Hierarchy
 
-**Always use the highest available tool. Never skip to a lower tier.**
+**Always use the highest available tool. Never skip to a lower tier.** (See "Command Tool Order" at the top of this file for the canonical rule.)
 
 1. **fff MCP** — All file search, glob, and grep inside the git-indexed project. Always try this first.
 2. **ast-grep** — Syntax-aware structural code search when fff MCP is insufficient.
-3. **ripgrep (`rg`)** — Full-text search when fff MCP or ast-grep don't fit.
-4. **fd** — File discovery by name/pattern. Never use `find` instead.
-5. **grep / find** — Forbidden. Do not use unless explicitly instructed by the user.
+3. **`rg`** (ripgrep) — Full-text search when fff MCP or ast-grep don't fit. Use full language names with `--type`.
+4. **`fd`** — File discovery by name/pattern. Never use `find` instead.
+5. **`grep` / `find`** — Last resort only. Use only when the tools above are genuinely unavailable for the task.
 
 ### Bash Command Guidelines
 
-**Avoid shell loops.** `for`/`while` loops and compound shell constructs require permission prompts and are slower than modern alternatives. **Never use `find` or `grep` — use `fd` and `rg` instead.**
+**Avoid shell loops.** `for`/`while` loops and compound shell constructs require permission prompts and are slower than modern alternatives. **Prefer `fd` over `find` and `rg` over `grep` — reach for `find`/`grep` only as a last resort when `fd`/`rg` are genuinely unavailable.**
 
 | Instead of                                  | Use                      |
 | ------------------------------------------- | ------------------------ |
