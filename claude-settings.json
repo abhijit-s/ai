@@ -220,6 +220,30 @@
   "model": "opusplan",
   "enableAllProjectMcpServers": true,
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/enforce-tool-guidelines.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/inject-tool-guidelines.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -249,6 +273,30 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/notify.sh -s info -q"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/a.salvi/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/a.salvi/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
           }
         ]
       }
@@ -310,5 +358,8 @@
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754059139990
+  },
+  "env": {
+    "OBSIDIAN_VAULT_PATH": "/Users/a.salvi/Work/abhi.easygo.io"
   }
 }
