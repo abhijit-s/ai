@@ -1,0 +1,8 @@
+Every response must expand acronyms at least once on first use. Use one of:
+
+1. Inline expansion — write the full expansion in brackets immediately after first use.
+   Example: "PSA (Pod Security Admission)", "CI (Continuous Integration)", "ARC (Actions Runner Controller)"
+2. Glossary block — append a glossary section at the end if inline expansion makes prose too verbose.
+
+This is a hard requirement. Do not assume the reader knows any acronym regardless of how common it seems.
+If a response uses no acronyms, this rule is satisfied automatically.

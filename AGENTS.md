@@ -36,6 +36,25 @@ Sub-agents consume their own context (not yours), can run simultaneously, and st
 - Launch multiple agents in a single message when tasks are independent
 - Use `run_in_background: true` for tasks that don't block your main work
 
+### Sub-Agent Guideline Injection
+
+A `SubagentStart` hook automatically injects guidelines into every sub-agent from a config-driven library at `~/.claude/hooks/guidelines.json`. Each agent type has a default profile (slug list); you can override it per spawn.
+
+**To override the default profile**, append a comment annotation anywhere in the agent prompt:
+
+```
+<!-- inject: slug1,slug2 -->
+```
+
+**Available slugs:**
+- `tool-hierarchy` — tool selection order (fff MCP → ast-grep → rg → fd → grep)
+- `bash-commands` — bash loop/find/grep anti-patterns
+- `vocab-acronyms` — acronym expansion requirement
+
+**When to override:** Omit `bash-commands` for agents that don't run shell commands (e.g., documentation writers). Omit `tool-hierarchy` for agents that only call MCP tools. Add `vocab-acronyms` to any agent producing user-facing prose.
+
+**To add a new guideline:** Create `~/.claude/hooks/guidelines/<slug>.txt`, add metadata to `~/.claude/hooks/guidelines.json` under `slugs`, and optionally add it to relevant profiles.
+
 ### Quick Reference
 
 | Workflows                  | Purpose                                       |

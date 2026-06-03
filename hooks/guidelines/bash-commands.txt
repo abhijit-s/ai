@@ -1,0 +1,9 @@
+- Never use shell loops (`for`/`while`). Use `fd -x` or `rg` instead.
+- Never use `find` — use `fd`.
+- Never use `grep -r` — use `rg`.
+- For multi-file discovery spanning >5 files, spawn an Explore sub-agent.
+
+Examples:
+  Wrong: find . -name "*.rb" -exec cat {} \;   Right: fd -e rb -x cat {}
+  Wrong: grep -r "pattern" .                   Right: rg "pattern"
+  Wrong: grep -r "pattern" --include="*.ts"    Right: rg "pattern" --type typescript

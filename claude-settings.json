@@ -238,7 +238,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/inject-tool-guidelines.sh",
+            "command": "python3 ~/.claude/hooks/inject-guidelines.py",
             "timeout": 5
           }
         ]

@@ -26,6 +26,14 @@ Examples:
 
   Wrong: grep -r "pattern" . --include="*.ts"
   Right:  rg "pattern" --type typescript
+
+VOCABULARY GUIDELINES (from CLAUDE.md — hard requirement):
+- Every response must expand acronyms at least once on first use.
+- Use inline expansion: write the full expansion in brackets immediately after the acronym.
+  Example: "PSA (Pod Security Admission)", "ARC (Actions Runner Controller)", "CI (Continuous Integration)"
+- OR append a glossary block at the end listing every acronym used, if inline gets too verbose.
+- Do NOT assume the reader knows any acronym, no matter how common it seems.
+- If a response uses no acronyms, this rule is satisfied automatically.
 EOF
 )
 

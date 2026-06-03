@@ -1,0 +1,9 @@
+Follow this tool order and stop at the first tool that fits:
+
+1. fff MCP (`mcp__fff__grep`, `mcp__fff__find_files`) — FIRST CHOICE for all file search, glob, and grep inside the git-indexed project.
+2. ast-grep — Syntax-aware structural code search when fff MCP is insufficient.
+3. rg (ripgrep) — Full-text search when fff MCP / ast-grep don't fit. Use full language names: `--type ruby` (not `--type rb`), `--type typescript`, etc.
+4. fd — File discovery by name/pattern. NEVER use `find` instead of `fd`.
+5. grep / find — LAST RESORT ONLY. Use only when the above tools are genuinely unavailable.
+
+Never skip to a lower tier when a higher one fits the task.
