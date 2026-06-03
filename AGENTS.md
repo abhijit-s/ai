@@ -100,8 +100,10 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 
 | Intent | Context | Skill |
 | ------ | ------- | ----- |
-| Write / draft an ADR | Vault | `obsidian-adr` |
-| Make a note / capture this | Any | `obsidian-capture` |
+| Write / draft an engineering ADR | Vault | `knowledge-capture:record-decision` |
+| Write an ADR for a vault structure change | Vault | `obsidian-adr` |
+| Capture an engineering learning / journal entry | Vault (engineering) | `knowledge-capture:capture-journal` or `record-learning` |
+| Make a general note / capture this | Any (non-engineering) | `obsidian-capture` |
 | Log a learning / "I learned that" | Any | `knowledge-capture:record-learning` |
 | Record a decision / "we decided" | Any | `knowledge-capture:record-decision` |
 | Write or update repo docs | Repo markdown files | `writing-documentation` → `documentation-refiner` agent |
@@ -111,12 +113,18 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 
 **Trigger phrases (case-insensitive) → skills:**
 
-- "write an ADR", "draft an ADR", "create an ADR" → `obsidian-adr`
-- "make a note", "note that", "capture this", "jot this down" → `obsidian-capture`
+- "write an ADR", "draft an ADR", "create an ADR" → `knowledge-capture:record-decision` (engineering context); `obsidian-adr` only when the vault's own structure is changing
+- "make a note", "note that", "capture this", "jot this down" → `obsidian-capture` (unless engineering context — then `capture-journal`)
 - "I learned that", "record this learning", "log this learning" → `knowledge-capture:record-learning`
 - "we decided to", "record this decision", "capture this decision" → `knowledge-capture:record-decision`
 - "update the docs", "write documentation", "document this" → `writing-documentation`
 - "synthesize", "connect dots", "pull together notes" → `vault-deep-synthesis`
+
+**`obsidian-second-brain` vs `engineering-tools` — both share the same vault, different layers:**
+
+- **ADRs**: `knowledge-capture:record-decision` for architecture/engineering decisions. `obsidian-adr` only for vault structural changes (folder reorganisations, schema changes).
+- **Engineering learnings**: always use `knowledge-capture:capture-journal` or `record-learning`, never `/obsidian-capture` or `/obsidian-save`. Notes written via obsidian-second-brain lack the `informed_by` frontmatter field and become invisible to the `knowledge-audit:audit-scan` drift detection pipeline.
+- **Vault health**: `knowledge-audit:audit-scan` for engineering drift (stale ADR chains, missing decision trails). `/obsidian-health` for personal hygiene (orphaned notes, broken links, overdue tasks).
 
 ## Tooling Preferences
 

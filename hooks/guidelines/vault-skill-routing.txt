@@ -1,0 +1,17 @@
+Two skill systems share the same Obsidian vault. Route to the correct one:
+
+obsidian-second-brain → personal, people, daily notes, research, thinking tools.
+engineering-tools → engineering pipeline: journal → ADR → audit → compass → code.
+
+Three disambiguation rules:
+
+1. ADRs: use `knowledge-capture:record-decision` for architecture/engineering decisions.
+   Use `obsidian-adr` only for vault structural changes (folder reorganisations, schema changes).
+
+2. Engineering learnings: use `knowledge-capture:capture-journal` or `record-learning` — NOT
+   `/obsidian-capture` or `/obsidian-save`. Notes captured via obsidian-second-brain lack the
+   `informed_by` frontmatter field and become invisible to the drift detection pipeline.
+
+3. Vault health: use `knowledge-audit:audit-scan` for engineering drift (stale ADR chains,
+   missing decision trails). Use `/obsidian-health` for personal hygiene (orphaned notes,
+   broken links, overdue tasks).

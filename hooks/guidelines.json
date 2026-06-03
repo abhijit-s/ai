@@ -1,5 +1,9 @@
 {
-  "categories": ["tooling", "vocabulary"],
+  "categories": [
+    "tooling",
+    "vocabulary",
+    "routing"
+  ],
   "slugs": {
     "tool-hierarchy": {
       "title": "Tool Hierarchy",
@@ -12,24 +16,74 @@
       "order": 2
     },
     "vocab-acronyms": {
-      "title": "Vocabulary — Acronym Expansion",
+      "title": "Vocabulary \u2014 Acronym Expansion",
       "category": "vocabulary",
+      "order": 1
+    },
+    "vault-skill-routing": {
+      "title": "Vault Skill Routing \u2014 obsidian-second-brain vs engineering-tools",
+      "category": "routing",
       "order": 1
     }
   },
   "profiles": {
-    "default":               ["tool-hierarchy", "bash-commands", "vocab-acronyms"],
-    "claude":                ["tool-hierarchy", "bash-commands", "vocab-acronyms"],
-    "general-purpose":       ["tool-hierarchy", "bash-commands", "vocab-acronyms"],
-    "Explore":               ["tool-hierarchy", "bash-commands"],
-    "Plan":                  ["tool-hierarchy", "vocab-acronyms"],
-    "code-explorer":         ["tool-hierarchy", "bash-commands", "vocab-acronyms"],
-    "code-architect":        ["tool-hierarchy", "vocab-acronyms"],
-    "code-reviewer":         ["tool-hierarchy", "vocab-acronyms"],
-    "code-refiner":          ["tool-hierarchy", "vocab-acronyms"],
-    "architecture-reviewer": ["tool-hierarchy", "vocab-acronyms"],
-    "plan-refiner":          ["tool-hierarchy", "vocab-acronyms"],
-    "documentation-refiner": ["vocab-acronyms"],
-    "skeptic":               ["tool-hierarchy", "vocab-acronyms"]
+    "default": [
+      "tool-hierarchy",
+      "bash-commands",
+      "vocab-acronyms",
+      "vault-skill-routing"
+    ],
+    "claude": [
+      "tool-hierarchy",
+      "bash-commands",
+      "vocab-acronyms",
+      "vault-skill-routing"
+    ],
+    "general-purpose": [
+      "tool-hierarchy",
+      "bash-commands",
+      "vocab-acronyms",
+      "vault-skill-routing"
+    ],
+    "Explore": [
+      "tool-hierarchy",
+      "bash-commands"
+    ],
+    "Plan": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "code-explorer": [
+      "tool-hierarchy",
+      "bash-commands",
+      "vocab-acronyms"
+    ],
+    "code-architect": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "code-reviewer": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "code-refiner": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "architecture-reviewer": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "plan-refiner": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ],
+    "documentation-refiner": [
+      "vocab-acronyms"
+    ],
+    "skeptic": [
+      "tool-hierarchy",
+      "vocab-acronyms"
+    ]
   }
 }
