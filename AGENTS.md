@@ -229,8 +229,14 @@ Creates PRs with concise descriptions focused on the problem being solved. Analy
 
 ## Vocabulary
 
-**Always expand acronyms on first use** — inline, immediately after the acronym: "PSA (Pod Security Admission)", "LBC (AWS (Amazon Web Services) Load Balancer Controller)".
+**Every response must expand acronyms at least once.** Use one of these two forms:
 
-If a project maintains a glossary file, append any new acronyms introduced during the session to it. Keep entries alphabetical: `**ACRONYM** — Full expansion. Brief definition.`
+1. **Inline expansion** — write the expansion in brackets immediately after the first use: "PSA (Pod Security Admission)", "ARC (Actions Runner
+Controller)".
+2. **Glossary block** — append a small glossary section at the end of the response listing every acronym used, if the prose gets too verbose with expansion. Use your judgement.
 
-Do not assume the reader knows an acronym, regardless of how common it seems in the domain.
+This is a hard requirement, not best-effort. Do not assume the reader knows any acronym regardless of how common it seems in the domain. If a response
+uses no acronyms, the rule is satisfied automatically.
+
+If a project maintains a glossary file, also append any new acronyms introduced during the session to it. Keep entries alphabetical: `**ACRONYM** —
+Full expansion. Brief definition.`
