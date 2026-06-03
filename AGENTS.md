@@ -160,6 +160,25 @@ Avoid temporal references: "vs previous", "used to be X", "now uses Y", "the new
 
 **Test**: If it would be unclear in 6 months, remove it. Exception: `CHANGELOG.md` documents changes over time.
 
+## Diagrams & Visual Communication
+
+**Reach for diagrams whenever a picture beats prose.** A well-placed diagram collapses paragraphs of explanation into an instantly scannable visual — use them proactively, not just when asked.
+
+**When to diagram:**
+- System or component topology (what talks to what)
+- Flows with branching logic: request lifecycles, decision trees, user journeys
+- Before-and-after state changes, data transformations, or migration paths
+- Sequences involving multiple actors or time-ordered steps
+- Any concept where relationships, hierarchy, or directionality matter
+
+**Format guidance:**
+- **Mermaid JS** — prefer for structured diagrams: flowcharts, sequence diagrams, ER (Entity-Relationship) diagrams, state machines, Gantt charts. Renders natively in GitHub, Notion, and most modern editors.
+- **ASCII** — prefer for inline sketches, quick topology maps, or environments where Mermaid may not render.
+
+This applies across all domains — not just software. Explaining a business process, a recipe workflow, a financial structure, or a decision framework? If a diagram makes it clearer, draw it.
+
+**Bias toward the big picture first.** Lead with the high-level view, then add detail diagrams only where the depth genuinely helps.
+
 ## Development Workflow
 
 **Refine each stage before proceeding.**
