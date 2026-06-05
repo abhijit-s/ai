@@ -16,6 +16,7 @@ fi
 
 if [ -n "$reminder" ]; then
   jq -n --arg ctx "$reminder" '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "additionalContext": $ctx}}'
+  exit 0
 fi
 
 exit 0
