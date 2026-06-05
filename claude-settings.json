@@ -220,6 +220,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opusplan",
   "enableAllProjectMcpServers": true,
   "hooks": {
     "PreToolUse": [
