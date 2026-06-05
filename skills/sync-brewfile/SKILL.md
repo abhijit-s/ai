@@ -6,72 +6,38 @@ argument-hint: Optional path to Brewfile (defaults to current working directory)
 
 # Sync Brewfile to Installed Packages
 
-Bring the Brewfile in line with what's actually installed, without overwriting it wholesale.
-
-## Process
-
-### 1. Read Current State in Parallel
+All logic lives in `packages/homebrew/scripts/sync_brewfile.py`. Run it from the
+directory containing the Brewfile (or pass the path explicitly):
 
 ```bash
-# Resolve Brewfile path (argument or default)
-cat Brewfile                           # or path from argument
-brew list --formula | sort             # all installed formulae
-brew list --cask | sort                # all installed casks
-brew tap | sort                        # all active taps
-brew leaves | sort                     # top-level formulae (not deps of others)
+python3 /Users/a.salvi/.dotfiles/packages/homebrew/scripts/sync_brewfile.py [BREWFILE_PATH]
 ```
 
-Run all five commands in parallel.
-
-### 2. Identify Differences
-
-**Formulae to ADD** — in `brew leaves` output but not referenced in Brewfile.
-
-When a formula is tap-prefixed in `brew leaves` (e.g. `one2nc/cloudlens/cloudlens`), check whether its tap is also listed in the Brewfile taps section; add the tap if missing.
-
-**Formulae to REMOVE** — listed in Brewfile but absent from `brew list --formula` output. These have been uninstalled since the Brewfile was last updated.
-
-**Casks to ADD** — in `brew list --cask` but not in Brewfile.
-
-**Casks to REMOVE** — listed in Brewfile but absent from `brew list --cask`.
-
-**Taps to ADD** — active taps (from `brew tap`) not listed in the Brewfile taps section.
-
-> Note: dependency-only formulae (present in `brew list` but absent from `brew leaves`) do **not** belong in the Brewfile unless already there — they're managed transitively.
-
-### 3. Look Up Descriptions
-
-For each formula/cask being added, get a one-line description:
+Or use the shell wrapper directly:
 
 ```bash
-brew info <formula>        # first line of output is the description
-brew info --cask <cask>    # same
+/Users/a.salvi/.dotfiles/packages/homebrew/scripts/sync_brewfile.sh [BREWFILE_PATH]
 ```
 
-Use the description as an inline comment above the entry, matching the style of existing entries in the Brewfile.
+## What the script does
 
-### 4. Make Targeted Edits
+1. Gathers installed state in parallel (`brew list --formula`, `brew list --cask`, `brew tap`, `brew leaves`)
+2. Parses the Brewfile to find what's already tracked
+3. Computes additions and removals:
+   - **Formulae to add**: in `brew leaves` but not in Brewfile (top-level only, not transitive deps)
+   - **Formulae to remove**: in Brewfile but absent from `brew list` (uninstalled)
+   - **Casks to add/remove**: same logic
+   - **Taps to add**: active taps not listed in the Brewfile taps section
+4. Fetches one-line descriptions (`brew desc`) for all new entries in parallel
+5. Applies surgical edits — inserts alphabetically, removes by name, preserves comments and structure
 
-Edit the Brewfile with minimal, surgical changes — **do not rewrite it wholesale**.
+## After the script runs
 
-- Insert new formulae alphabetically within the existing formulae block
-- Insert new casks alphabetically within the existing casks block
-- Insert new taps in the taps section at the top
-- Remove only the specific lines for uninstalled entries
-
-### 5. Verify
-
-After edits, do a final spot-check:
+Spot-check with:
 
 ```bash
-brew bundle check --no-lock   # confirm Brewfile matches installed state
+brew bundle check --file=Brewfile --verbose
 ```
 
-If `brew bundle check` reports missing packages, investigate before declaring done — it may indicate a formula name mismatch (e.g. tap-prefixed vs bare name).
-
-## Key Principles
-
-- **Leaves, not all packages**: Only top-level formulae belong in the Brewfile. Dependencies are managed transitively by Homebrew.
-- **Surgical edits**: Preserve comments, ordering, and section structure. Don't regenerate the file.
-- **Descriptions**: Every entry should have a comment explaining what it is.
-- **Tap consistency**: If a formula requires a tap, that tap must appear in the taps section.
+Pre-existing link-state warnings (`docker`, `gnupg link: false`, `libpq`) are expected and
+unrelated to the sync. Investigate only if a formula name mismatch is reported.
