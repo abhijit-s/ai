@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents when working with code across al
 
 Before writing any bash command that searches files or text, work through this order and stop at the first tool that fits:
 
-1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all search inside a git-indexed project
+1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all search in any context; git repos additionally get frecency boosting for dirty files
 2. **ast-grep** — syntax-aware structural search when fff MCP is insufficient
 3. **`rg`** (ripgrep) — full-text search; use full language names (`--type ruby`, not `--type rb`)
 4. **`fd`** — file discovery by name/pattern
