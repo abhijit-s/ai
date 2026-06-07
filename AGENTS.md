@@ -59,45 +59,6 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 
 **To add a new guideline:** Create `~/.claude/hooks/guidelines/<slug>.txt`, add metadata to `~/.claude/hooks/guidelines.json` under `slugs`, and optionally add it to relevant profiles.
 
-### Quick Reference
-
-| Workflows                  | Purpose                                       |
-| -------------------------- | --------------------------------------------- |
-| `/commit`                  | Commit with conventional message (why > what) |
-| `/create-pr`               | Create PR with concise description            |
-| `/ship`                    | Autonomous end-to-end feature development     |
-| `/refine-implementation`   | Multi-pass code review before commit          |
-| `/examine-architecture`    | Evaluate codebase for structural problems     |
-| `/address-pr-review`       | Resolve PR review comments                    |
-| `/review-dependabot`       | Analyze and merge Dependabot PRs              |
-| `/publish`                 | End-to-end release workflow                   |
-| `/interview`               | Interview user about a plan                   |
-| `/daily-claude-code-recap` | Summarize the day's sessions                  |
-
-| Agents                  | Purpose                                       |
-| ----------------------- | --------------------------------------------- |
-| `code-explorer`         | Trace execution paths, map dependencies       |
-| `code-architect`        | Design feature architectures                  |
-| `code-reviewer`         | Review for bugs, security, conventions        |
-| `code-refiner`          | Simplify complexity, improve maintainability  |
-| `architecture-reviewer` | Evaluate brittleness, complexity, coupling    |
-| `plan-refiner`          | Validate plans, suggest simpler approaches    |
-| `pr-comment-reviewer`   | Evaluate PR comments for actionability        |
-| `committer`             | Create commits with conventional messages     |
-| `pr-creator`            | Create PRs with structured descriptions       |
-| `design-refiner`        | Iteratively refine frontend designs           |
-| `documentation-refiner` | Maintain Markdown files and developer docs    |
-| `skeptic`               | Challenge conclusions before reaching user    |
-
-| Domain Skills            | Trigger                   |
-| ------------------------ | ------------------------- |
-| `frontend-design`        | Building web interfaces   |
-| `writing-documentation`  | Updating docs             |
-| `writing-claude-skills`  | Creating Claude skills    |
-| `writing-claude-prompts` | Writing prompts           |
-| `chartmogul-analytics`   | Analyzing revenue metrics |
-| `cooking`                | Recipes and meal planning |
-
 ## Documentation & Knowledge Routing
 
 **Never use the general-purpose agent for documentation or note-taking tasks.** Invoke the correct skill immediately — before any other action.
@@ -115,7 +76,7 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 | Audit vault quality / find gaps | Vault | `knowledge-audit:audit-scan` |
 | Sync vault docs → repo `docs/ai-context/` | Surge repo | `surge-ai:sync-ai-context` |
 
-**Trigger phrases (case-insensitive) → skills:**
+**Trigger phrases — these take priority over obsidian-second-brain equivalents:**
 
 - "write an ADR", "draft an ADR", "create an ADR" → `knowledge-capture:record-decision` (engineering context); `obsidian-adr` only when the vault's own structure is changing
 - "make a note", "note that", "capture this", "jot this down" → `obsidian-capture` (unless engineering context — then `capture-journal`)
@@ -134,13 +95,7 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 
 ### Tool Hierarchy
 
-**Always use the highest available tool. Never skip to a lower tier.** (See "Command Tool Order" at the top of this file for the canonical rule.)
-
-1. **fff MCP** — All file search, glob, and grep inside the git-indexed project. Always try this first.
-2. **ast-grep** — Syntax-aware structural code search when fff MCP is insufficient.
-3. **`rg`** (ripgrep) — Full-text search when fff MCP or ast-grep don't fit. Use full language names with `--type`.
-4. **`fd`** — File discovery by name/pattern. Never use `find` instead.
-5. **`grep` / `find`** — Last resort only. Use only when the tools above are genuinely unavailable for the task.
+See **Command Tool Order** at the top of this file.
 
 ### Bash Command Guidelines
 
@@ -157,8 +112,7 @@ For complex multi-file discovery, spawn a sub-agent rather than writing shell lo
 
 ### Modern CLI Tools
 
-- **fff MCP**: First choice for file search, glob, and grep within the git-indexed project — registered as a stdio MCP server.
-  - `find_files` / `grep` / `multi_grep` — search (see Command Tool Order above)
+- **fff MCP** (stdio MCP server): search tools covered by Command Tool Order above. Also for session orientation:
   - `list_directories` — frecency-ranked active dirs; prefer over `ls`/`eza` when orienting in a project
   - `list_recent_files` — files ranked by recent access; use at session start to see what's in flight. `dirty_only=true` narrows to uncommitted + recently touched files
   - `get_git_status` — prefer over shelling out to `git status`; output is frecency-enriched and grouped by status
@@ -166,6 +120,9 @@ For complex multi-file discovery, spawn a sub-agent rather than writing shell lo
 - **File searching**: `fd` — faster than `find`, respects `.gitignore`, simpler syntax
 - **Text searching**: `rg` (ripgrep) — use full language names with `--type` (e.g., `--type ruby`, not `--type rb`)
 - **Syntax-aware searching**: `ast-grep` for structural code search; combine with `rg` for efficiency
+- **Document conversion**: `markitdown` — convert any non-text file or URL to Markdown before reading. Use when the user shares a file Claude cannot read directly. Run `markitdown <file>` (stdout) or `markitdown <file> -o out.md` (file). Hint the format when piping from stdin: `markitdown -x pdf < file.bin`.
+  - Supported inputs: PDF, Word (`.docx`), Excel (`.xlsx`/`.xls`), PowerPoint (`.pptx`), EPUB, Outlook email (`.msg`), CSV (→ Markdown tables), Jupyter notebooks (`.ipynb`), HTML, XML/RSS/Atom feeds, images (metadata + optional LLM description), audio/video (metadata + optional transcription), JSON/JSONL, ZIP archives, and URLs
+  - **Always run `markitdown` first** on any of the above before attempting to read the raw bytes — do not try to parse binary formats directly.
 - **File viewing**: `bat` — syntax highlighting and line numbers
 - **Directory listings**: `eza` — colorized output with git status integration
 
@@ -234,32 +191,6 @@ For complex work spanning multiple sessions:
 - Create setup scripts (`init.sh`) for graceful restarts across sessions
 - Track progress in files and review filesystem state when resuming
 
-### 1. Planning
-
-1. Understand requirements and create an implementation plan
-2. Launch `plan-refiner` agent to validate the approach
-3. Proceed only after the plan is approved
-
-`plan-refiner` has final authority on approach and can suggest radical simplifications.
-
-### 2. Implementation
-
-1. Implement according to the approved plan
-2. At checkpoints, run `/refine-implementation` to spawn `code-refiner` for a fresh review
-3. Proceed to commit only after refinement is complete
-
-### 3. Committing
-
-Run `/commit` or ask: *"commit these changes"*
-
-Creates commits with conventional messages that explain *why*, not just *what*. Analyzes changes, drafts message, refines for clarity, and commits.
-
-### 4. Pull Requests
-
-Run `/create-pr` or ask: *"create a PR for this branch"*
-
-Creates PRs with concise descriptions focused on the problem being solved. Analyzes the branch, drafts a description, verifies the problem statement if unclear, and creates the PR.
-
 ## Code Quality Standards
 
 - Ensure all tests pass before committing
@@ -295,3 +226,42 @@ uses no acronyms, the rule is satisfied automatically.
 
 If a project maintains a glossary file, also append any new acronyms introduced during the session to it. Keep entries alphabetical: `**ACRONYM** —
 Full expansion. Brief definition.`
+
+## Quick Reference
+
+| Workflows                  | Purpose                                       |
+| -------------------------- | --------------------------------------------- |
+| `/commit`                  | Commit with conventional message (why > what) |
+| `/create-pr`               | Create PR with concise description            |
+| `/ship`                    | Autonomous end-to-end feature development     |
+| `/refine-implementation`   | Multi-pass code review before commit          |
+| `/examine-architecture`    | Evaluate codebase for structural problems     |
+| `/address-pr-review`       | Resolve PR review comments                    |
+| `/review-dependabot`       | Analyze and merge Dependabot PRs              |
+| `/publish`                 | End-to-end release workflow                   |
+| `/interview`               | Interview user about a plan                   |
+| `/daily-claude-code-recap` | Summarize the day's sessions                  |
+
+| Agents                  | Purpose                                       |
+| ----------------------- | --------------------------------------------- |
+| `code-explorer`         | Trace execution paths, map dependencies       |
+| `code-architect`        | Design feature architectures                  |
+| `code-reviewer`         | Review for bugs, security, conventions        |
+| `code-refiner`          | Simplify complexity, improve maintainability  |
+| `architecture-reviewer` | Evaluate brittleness, complexity, coupling    |
+| `plan-refiner`          | Validate plans, suggest simpler approaches    |
+| `pr-comment-reviewer`   | Evaluate PR comments for actionability        |
+| `committer`             | Create commits with conventional messages     |
+| `pr-creator`            | Create PRs with structured descriptions       |
+| `design-refiner`        | Iteratively refine frontend designs           |
+| `documentation-refiner` | Maintain Markdown files and developer docs    |
+| `skeptic`               | Challenge conclusions before reaching user    |
+
+| Domain Skills            | Trigger                   |
+| ------------------------ | ------------------------- |
+| `frontend-design`        | Building web interfaces   |
+| `writing-documentation`  | Updating docs             |
+| `writing-claude-skills`  | Creating Claude skills    |
+| `writing-claude-prompts` | Writing prompts           |
+| `chartmogul-analytics`   | Analyzing revenue metrics |
+| `cooking`                | Recipes and meal planning |
