@@ -1,8 +1,23 @@
 Follow this tool order and stop at the first tool that fits:
 
-1. fff MCP (`mcp__fff__grep`, `mcp__fff__find_files`, `mcp__fff__multi_grep`) — FIRST CHOICE for all file search, glob, and grep inside the git-indexed project.
-   IMPORTANT: fff MCP tools are deferred — their schemas are not loaded by default. You MUST call ToolSearch with `query: "select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep"` before calling any `mcp__fff__*` tool, or you will get an InputValidationError.
-   Once loaded, USE THEM. Do not load fff MCP and then fall back to grep/find anyway — that defeats the purpose.
+1. fff MCP — FIRST CHOICE for all file search, listing, and git-status queries inside the git-indexed project.
+   IMPORTANT: fff MCP tools are deferred — their schemas are not loaded by default. You MUST call ToolSearch with the relevant select query BEFORE calling any `mcp__fff__*` tool, or you will get an InputValidationError. Once loaded, USE THEM — do not load fff MCP and then fall back to grep/find anyway.
+
+   | fff MCP tool                    | Use instead of                   | When to use                                              |
+   | ------------------------------- | -------------------------------- | -------------------------------------------------------- |
+   | `mcp__fff__grep`                | `rg`, `grep -r`                  | Search file CONTENTS for a specific name or pattern      |
+   | `mcp__fff__multi_grep`          | multiple `rg` calls              | OR-search across 2+ patterns or case variants at once    |
+   | `mcp__fff__find_files`          | `fd`, `find`                     | Discover which files/modules exist for a topic           |
+   | `mcp__fff__list_directories`    | `ls`, `eza`, `fd` (dir listing)  | List contents of a directory                             |
+   | `mcp__fff__list_recent_files`   | `fd` (recency-ranked)            | Find recently accessed/changed files (frecency-ranked)   |
+   | `mcp__fff__get_git_status`      | `git status` (via Bash)          | Check working-tree status without a Bash permission prompt |
+   | `mcp__fff__record_access`       | (no equivalent)                  | Call after accessing a file to improve frecency ranking  |
+
+   ToolSearch queries to load the tools before use:
+   - All search/find tools: `select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep`
+   - Listing/status tools: `select:mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status`
+   - Load all at once: `select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep,mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status,mcp__fff__record_access`
+
 2. ast-grep — Syntax-aware structural code search when fff MCP is insufficient.
 3. rg (ripgrep) — Full-text search when fff MCP / ast-grep don't fit. Use full language names: `--type ruby` (not `--type rb`), `--type typescript`, etc.
 4. fd — File discovery by name/pattern. NEVER use `find` instead of `fd`.

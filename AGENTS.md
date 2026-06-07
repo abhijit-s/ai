@@ -14,6 +14,10 @@ This order is also enforced by a `PreToolUse` hook that fires on every bash comm
 
 **Never reach for `grep` or `find` by default.** They are familiar but slower, `.gitignore`-unaware, and lack the structured output of modern alternatives. If you find yourself typing `grep -r` or `find .`, stop and use `rg` or `fd` instead.
 
+For session orientation and git state, also use fff MCP non-search tools:
+`list_recent_files` (session start — what's in flight), `get_git_status` (instead of `git status`),
+`list_directories` (active project areas), `record_access` (after every file read).
+
 ## Core Philosophy
 
 **Complexity is not insight.** Smart people mistake elaborate solutions for wisdom. Ten-page memos that could be one. Factory classes wrapping factory classes. Abstractions for problems that don't exist yet.
@@ -153,7 +157,12 @@ For complex multi-file discovery, spawn a sub-agent rather than writing shell lo
 
 ### Modern CLI Tools
 
-- **fff MCP**: First choice for file search, glob, and grep within the git-indexed project — registered as a stdio MCP server
+- **fff MCP**: First choice for file search, glob, and grep within the git-indexed project — registered as a stdio MCP server.
+  - `find_files` / `grep` / `multi_grep` — search (see Command Tool Order above)
+  - `list_directories` — frecency-ranked active dirs; prefer over `ls`/`eza` when orienting in a project
+  - `list_recent_files` — files ranked by recent access; use at session start to see what's in flight. `dirty_only=true` narrows to uncommitted + recently touched files
+  - `get_git_status` — prefer over shelling out to `git status`; output is frecency-enriched and grouped by status
+  - `record_access` — **call this after reading any file** to feed the access back into the frecency database and improve future search rankings
 - **File searching**: `fd` — faster than `find`, respects `.gitignore`, simpler syntax
 - **Text searching**: `rg` (ripgrep) — use full language names with `--type` (e.g., `--type ruby`, not `--type rb`)
 - **Syntax-aware searching**: `ast-grep` for structural code search; combine with `rg` for efficiency
