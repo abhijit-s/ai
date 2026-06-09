@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
-    "OBSIDIAN_VAULT_PATH": "/Users/a.salvi/Work/abhi.easygo.io"
+    "OBSIDIAN_VAULT_PATH": "~/Work/abhi.easygo.io"
   },
   "attribution": {
     "commit": "",
@@ -215,9 +215,7 @@
       "Bash(psql:-c TRUNCATE TABLE:*)",
       "Bash(psql:-c TRUNCATE:*)"
     ],
-    "ask": [
-      "Bash(gh pr comment:*)"
-    ],
+    "ask": ["Bash(gh pr comment:*)"],
     "defaultMode": "auto"
   },
   "model": "opus",
@@ -286,7 +284,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/a.salvi/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
+            "command": "~/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
             "timeout": 10,
             "async": true
           }
@@ -299,7 +297,34 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/a.salvi/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
+            "command": "python3 ~/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/preload-fff-tools.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__fff__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5
           }
         ]
       }
@@ -361,5 +386,6 @@
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754059139990
-  }
+  },
+  "skipWorkflowUsageWarning": true
 }
