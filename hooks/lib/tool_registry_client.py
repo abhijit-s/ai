@@ -13,9 +13,21 @@ import os
 import re
 from typing import Iterable
 
-MANIFEST_PATH = os.path.expanduser("~/.claude/cache/tool-registry-manifest.json")
-DEFAULT_DOTFILES_ROOT = os.path.expanduser("~/.dotfiles/ai")
-PROFILES_PATH = os.path.join(DEFAULT_DOTFILES_ROOT, "hooks", "profiles.json")
+def _manifest_path() -> str:
+    return os.path.join(os.path.expanduser("~"), ".claude", "cache", "tool-registry-manifest.json")
+
+
+# Profile catalog lives next to this file (hooks/lib/ → hooks/profiles.json),
+# so it resolves correctly regardless of HOME or CWD. The override path
+# argument on load_profiles() lets tests pin to a fixture.
+def _default_profiles_path() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(here, "..", "profiles.json"))
+
+
+# Backwards-compatible module-level constants (evaluated at import time).
+MANIFEST_PATH = _manifest_path()
+PROFILES_PATH = _default_profiles_path()
 SCHEMA_VERSION = 1
 
 OVERRIDE_RE = re.compile(r"<!--\s*tools:\s*([\s\S]*?)\s*-->", re.IGNORECASE)
@@ -23,7 +35,8 @@ OVERRIDE_RE = re.compile(r"<!--\s*tools:\s*([\s\S]*?)\s*-->", re.IGNORECASE)
 
 def load_manifest(path: str | None = None) -> dict:
     """Return the parsed manifest dict, or an empty manifest on any read error."""
-    p = path or MANIFEST_PATH
+    # Recompute on each call so tests overriding HOME after import still work.
+    p = path or _manifest_path()
     try:
         with open(p) as f:
             data = json.load(f)
@@ -36,7 +49,7 @@ def load_manifest(path: str | None = None) -> dict:
 
 def load_profiles(path: str | None = None) -> dict:
     """Return the parsed hooks/profiles.json dict, or an empty profile catalog."""
-    p = path or PROFILES_PATH
+    p = path or _default_profiles_path()
     try:
         with open(p) as f:
             return json.load(f)
