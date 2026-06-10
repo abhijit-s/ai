@@ -1,4 +1,8 @@
-# Annotation overlay for the tool registry. Populated in U4 from AGENTS.md.
+# Annotation overlay for the tool registry. Day-1 seed transcribed from
+# AGENTS.md "Command Tool Order" and "Tooling Preferences" (see SEED_NOTES.md
+# for the mapping). After this lands, the registry is the canonical source
+# for prefer_over chains; AGENTS.md prose stays as human-facing docs.
+#
 # Schema (per KTD2):
 #   <tool-name>:
 #     description:    string  (overrides auto-discovered)
@@ -7,4 +11,106 @@
 #     prefer_over:    { <category>: [tool-name, ...] }
 #     fallback_to:    [string]
 #     compose_with:   [tool-name]
-# Non-overrideable fields (name, source, schema, health) are silently ignored.
+# Non-overrideable: name, source, schema, health.
+
+mcp__fff__grep:
+  description: Search file contents (frecency-ranked, .gitignore-aware)
+  category: [search-content]
+  capability_tags: [content-search, frecency-ranked, gitignore-aware, indexed]
+  prefer_over:
+    search-content: [ast-grep, rg, grep]
+
+mcp__fff__find_files:
+  description: Discover files by name (frecency-ranked, .gitignore-aware)
+  category: [find-files]
+  capability_tags: [file-discovery, frecency-ranked, gitignore-aware, indexed]
+  prefer_over:
+    find-files: [fd, find]
+  compose_with: [Read, mcp__fff__record_access]
+
+mcp__fff__multi_grep:
+  description: OR-search across multiple literal patterns
+  category: [search-content]
+  capability_tags: [content-search, frecency-ranked, gitignore-aware, indexed, multi-pattern]
+  prefer_over:
+    search-content: [ast-grep, rg, grep]
+
+mcp__fff__list_directories:
+  description: List active directories (frecency-ranked)
+  category: [list-dir]
+  capability_tags: [directory-listing, frecency-ranked, indexed]
+  prefer_over:
+    list-dir: [eza, ls]
+
+mcp__fff__list_recent_files:
+  description: Files ranked by recent access (frecency)
+  category: [list-dir]
+  capability_tags: [directory-listing, frecency-ranked, indexed, recency]
+  prefer_over:
+    list-dir: [eza, ls]
+
+mcp__fff__get_git_status:
+  description: Working-tree status, frecency-enriched, grouped by status
+  category: [git-state]
+  capability_tags: [git-state, frecency-enriched, indexed]
+  prefer_over:
+    git-state: [git-status]
+
+mcp__fff__record_access:
+  description: Boost a file's frecency rank after reading it
+  category: [list-dir]
+  capability_tags: [frecency-feedback]
+
+ast-grep:
+  description: Syntax-aware structural code search
+  category: [search-content, ast-search]
+  capability_tags: [structural-search, ast-aware]
+  prefer_over:
+    search-content: [rg, grep]
+    ast-search: []
+
+rg:
+  description: ripgrep — full-text search, .gitignore-aware
+  category: [search-content]
+  capability_tags: [content-search, gitignore-aware]
+  prefer_over:
+    search-content: [grep]
+
+fd:
+  description: Faster find — .gitignore-aware
+  category: [find-files]
+  capability_tags: [file-discovery, gitignore-aware]
+  prefer_over:
+    find-files: [find]
+
+grep:
+  description: POSIX grep (last resort)
+  category: [search-content]
+  capability_tags: [content-search, last-resort]
+
+find:
+  description: POSIX find (last resort)
+  category: [find-files]
+  capability_tags: [file-discovery, last-resort]
+
+ls:
+  description: POSIX ls
+  category: [list-dir]
+  capability_tags: [directory-listing]
+
+eza:
+  description: Modern ls with colors and git status
+  category: [list-dir]
+  capability_tags: [directory-listing, colorized]
+  prefer_over:
+    list-dir: [ls]
+
+git-status:
+  description: git status verb (Bash)
+  category: [git-state]
+  capability_tags: [git-state]
+
+mcp__turbo-rag__semantic_search:
+  description: Embedding-based semantic search across the indexed repo
+  category: [semantic-search]
+  capability_tags: [semantic, embedding-based]
