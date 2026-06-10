@@ -30,19 +30,22 @@ case "$tool_name" in
   Bash)
     cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
     # Detect first matching search verb. Order matters: check 'git status' before bare 'git'.
-    if echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)git[[:space:]]+status'; then
+    # Boundary class includes `(` so subshells like `$(grep foo)` count — must
+    # stay in lockstep with BASH_VERB_PATTERNS in hooks/enforce-tool-registry.py
+    # (the audit log feeds the AE2 block-mode graduation contract).
+    if echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)git[[:space:]]+status'; then
       kind="git-status"; tier="hi"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)rg[[:space:]]'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)rg[[:space:]]'; then
       kind="rg"; tier="hi"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)fd[[:space:]]'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)fd[[:space:]]'; then
       kind="fd"; tier="hi"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)grep[[:space:]]'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)grep[[:space:]]'; then
       kind="grep"; tier="lo"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)find[[:space:]]'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)find[[:space:]]'; then
       kind="find"; tier="lo"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)ls([[:space:]]|$)'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)ls([[:space:]]|$)'; then
       kind="ls"; tier="hi"
-    elif echo "$cmd" | grep -qE '(^|[|;&[:space:]]+)eza([[:space:]]|$)'; then
+    elif echo "$cmd" | grep -qE '(^|[|;&([:space:]]+)eza([[:space:]]|$)'; then
       kind="eza"; tier="hi"
     fi
     ;;
