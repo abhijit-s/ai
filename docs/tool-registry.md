@@ -49,6 +49,9 @@ same convention.
 | SessionStart refresh                     | `hooks/refresh-tool-registry.sh`                        |
 | SubagentStart digest                     | `hooks/inject-tool-digest.py`                           |
 | PreToolUse nudge                         | `hooks/enforce-tool-registry.py`                        |
+| PreToolUse:Task override stash           | `hooks/pretool-stash-override.py`                       |
+| Per-session override queue (FIFO)        | `~/.claude/cache/subagent-overrides/<session_id>.jsonl` |
+| Override queue helper                    | `hooks/lib/override_queue.py`                           |
 
 ## Manifest shape
 
@@ -103,6 +106,40 @@ profile filter for that single spawn:
 
 The `tools:` prefix is independent of `inject-guidelines.py`'s `inject:`
 prefix — a prompt may carry both and both take effect.
+
+### Override comments — how they work
+
+The live `SubagentStart` event from Claude Code does NOT carry the spawn
+prompt. To make the override comments reachable, a `PreToolUse:Task`
+hook (`hooks/pretool-stash-override.py`) parses both `<!-- tools: ... -->`
+and `<!-- inject: ... -->` from `tool_input.prompt`, then stashes them
+in a per-session FIFO (First-In-First-Out) queue:
+
+```
+~/.claude/cache/subagent-overrides/<session_id>.jsonl
+```
+
+Each line is a JSON entry of the form
+`{ts, agent_type, tool_use_id, tools, inject}`. On `SubagentStart`,
+`inject-tool-digest.py` and `inject-guidelines.py` each look up the
+earliest queue entry matching `(session_id, agent_type)` with a
+non-empty `tools` / `inject` field, consume it, and atomically rewrite
+the queue file. Entries older than 30 minutes are dropped on every
+write, so the file stays bounded without a separate sweeper.
+
+The PreToolUse matcher is `Task|Agent` because the captured event has
+`tool_name == "Agent"` but Claude Code historically also routes the
+matcher string `Task` to the same tool.
+
+#### Documented limitation
+
+Correlation is FIFO on `(session_id, agent_type)` — the `tool_use_id`
+from PreToolUse and the `agent_id` from SubagentStart live in different
+ID spaces and cannot be matched directly. If two parallel spawns of the
+**same** agent type carry **different** overrides, they may get matched
+out of order in the race window. Single-spawn-at-a-time and
+different-type parallel spawns are unaffected. This is acceptable for
+v1.
 
 ## How to add a new MCP server
 
