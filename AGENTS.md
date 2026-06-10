@@ -18,6 +18,8 @@ For session orientation and git state, also use fff MCP non-search tools:
 `list_recent_files` (session start — what's in flight), `get_git_status` (instead of `git status`),
 `list_directories` (active project areas), `record_access` (after every file read).
 
+> **Canonical preference data lives in the tool registry** — the table above is the human-facing summary; the live, profile-filtered, health-aware view is materialised at `~/.claude/cache/tool-registry-manifest.json` and surfaced to sub-agents via the `SubagentStart` digest hook. See `docs/tool-registry.md` for the full design, profile catalog, and how to add a new MCP server or tool category without touching registry code.
+
 ## Core Philosophy
 
 **Complexity is not insight.** Smart people mistake elaborate solutions for wisdom. Ten-page memos that could be one. Factory classes wrapping factory classes. Abstractions for problems that don't exist yet.

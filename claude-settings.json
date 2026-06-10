@@ -350,6 +350,11 @@
             "type": "command",
             "command": "~/.claude/hooks/preload-fff-tools.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/refresh-tool-registry.sh",
+            "timeout": 20
           }
         ]
       }
