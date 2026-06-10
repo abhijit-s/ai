@@ -84,9 +84,23 @@ def main():
     except Exception:
         sys.exit(0)
 
+    # Live Claude Code SubagentStart event puts `agent_type` at the top level
+    # (alongside `session_id`, `agent_id`, `hook_event_name`). The nested
+    # `tool_input.subagent_type` path is the legacy/test-fixture shape and is
+    # kept as a fallback so synthetic test inputs continue to work.
+    #
+    # KNOWN LIMITATION: the live SubagentStart event does NOT carry the spawn
+    # prompt, so the `<!-- tools: ... -->` override-comment mechanism is
+    # currently unreachable. Override-comment plumbing requires a different
+    # vehicle (e.g., a PreToolUse:Task hook that stashes the override in a
+    # session-scoped file this hook then reads). Tracked as a follow-up.
     tool_input = input_data.get("tool_input") or {}
-    agent_type = (tool_input.get("subagent_type") or "default").strip()
-    prompt = tool_input.get("prompt") or ""
+    agent_type = (
+        input_data.get("agent_type")
+        or tool_input.get("subagent_type")
+        or "default"
+    ).strip()
+    prompt = input_data.get("prompt") or tool_input.get("prompt") or ""
 
     manifest = load_manifest()
     if not manifest.get("tools"):
