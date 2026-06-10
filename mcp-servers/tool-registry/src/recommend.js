@@ -46,8 +46,34 @@ export function recommendTool(intent, manifest, allowed) {
     rankBonus = (tool.prefer_over?.[intent.category] || []).length;
 
     const score = base + rankBonus;
-    // Tie-break by chain position: prefer the tool that lists more tools in
-    // its prefer_over chain (i.e., the head of the chain).
+    // Tie-break rule (documented for future maintainers):
+    //
+    //   When two tools tie on (base + rankBonus), pick the one with the
+    //   SHORTER prefer_over chain for this category. The reasoning is
+    //   subtle: rankBonus IS the chain length, so a tie on `score` with
+    //   different rankBonus values means `base` (Jaccard tag overlap)
+    //   compensated for the chain-length difference — the tool with the
+    //   shorter chain has stronger tag-overlap evidence and is the
+    //   higher-confidence pick.
+    //
+    // Why this works for the current tool set:
+    //   - Within `search-content`, chains are strictly hierarchical
+    //     (fff > ast-grep > rg > grep). Ties on score are rare; when they
+    //     occur (e.g., two tools with identical tag sets and adjacent chain
+    //     positions), the head of the chain typically also has the
+    //     LONGEST chain — so a `rankBonus < bestRank` tie-break would
+    //     actually prefer the FOLLOWER over the head. In practice, the
+    //     `score > bestScore` arm fires first for the head, so the tie-break
+    //     arm only triggers for genuine ties between equivalent tools.
+    //
+    // When this may need revisiting:
+    //   - A new category with multiple tools sharing identical
+    //     `capability_tags` (so `base` is identical) AND overlapping
+    //     `prefer_over` chains. In that case, "shorter chain wins" may
+    //     surface the wrong tool. The deterministic alternative is to
+    //     define a global ordering of tools per category; we defer that
+    //     until a real category demands it (see "Deferred to Follow-Up
+    //     Work" in docs/plans/2026-06-10-001-feat-materialised-tool-discovery-plan.md).
     if (score > bestScore || (score === bestScore && rankBonus < bestRank)) {
       best = name;
       bestScore = score;
