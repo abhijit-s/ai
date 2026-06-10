@@ -1,0 +1,11 @@
+# Enumerated CLI tools the registry probes via `command -v`. Aligned with the
+# verb set tracked by hooks/audit-search-tools.sh so the audit log and the
+# registry agree on which calls to compare.
+- ast-grep
+- rg
+- fd
+- grep
+- find
+- ls
+- eza
+- git-status

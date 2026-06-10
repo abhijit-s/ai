@@ -1,0 +1,10 @@
+# Annotation overlay for the tool registry. Populated in U4 from AGENTS.md.
+# Schema (per KTD2):
+#   <tool-name>:
+#     description:    string  (overrides auto-discovered)
+#     category:       [string]
+#     capability_tags: [string]
+#     prefer_over:    { <category>: [tool-name, ...] }
+#     fallback_to:    [string]
+#     compose_with:   [tool-name]
+# Non-overrideable fields (name, source, schema, health) are silently ignored.
