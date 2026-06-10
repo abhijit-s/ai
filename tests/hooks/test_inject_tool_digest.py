@@ -173,3 +173,216 @@ def test_no_stdin_input_exits_zero():
         ["python3", HOOK], input=b"not json", capture_output=True, timeout=10
     )
     assert proc.returncode == 0
+
+
+# ---------------------------------------------------------------------------
+# Queue-driven override tests (live SubagentStart event shape)
+# ---------------------------------------------------------------------------
+
+
+def _queue_path(home: str, session_id: str) -> str:
+    return os.path.join(
+        home, ".claude", "cache", "subagent-overrides", f"{session_id}.jsonl"
+    )
+
+
+def _write_queue(home: str, session_id: str, entries: list[dict]) -> None:
+    path = _queue_path(home, session_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
+
+
+def _now_iso() -> str:
+    import time as _t
+    return _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
+
+
+def test_queue_tools_override_wins_over_profile(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    _write_queue(
+        fake_home,
+        "sess-1",
+        [
+            {
+                "ts": _now_iso(),
+                "agent_type": "code-explorer",
+                "tool_use_id": "tu_a",
+                "tools": ["documentation-refiner"],
+                "inject": [],
+            }
+        ],
+    )
+    out = run_hook(
+        {
+            "session_id": "sess-1",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    assert out.returncode == 0
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    # documentation-refiner profile is search-content only.
+    assert "mcp__fff__find_files" not in digest
+    assert "override: documentation-refiner" in digest
+
+
+def test_queue_inject_only_entry_is_ignored_by_digest_hook(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    _write_queue(
+        fake_home,
+        "sess-1",
+        [
+            {
+                "ts": _now_iso(),
+                "agent_type": "code-explorer",
+                "tool_use_id": "tu_a",
+                "tools": [],
+                "inject": ["vocab-acronyms"],
+            }
+        ],
+    )
+    out = run_hook(
+        {
+            "session_id": "sess-1",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    assert out.returncode == 0
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    # No override applied — falls through to code-explorer profile default.
+    assert "override:" not in digest
+    assert "code-explorer" in digest
+
+
+def test_queue_entry_for_different_agent_type_is_ignored(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    _write_queue(
+        fake_home,
+        "sess-1",
+        [
+            {
+                "ts": _now_iso(),
+                "agent_type": "code-reviewer",
+                "tool_use_id": "tu_a",
+                "tools": ["documentation-refiner"],
+                "inject": [],
+            }
+        ],
+    )
+    out = run_hook(
+        {
+            "session_id": "sess-1",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    # Override targeted code-reviewer, not us → fall through to our profile.
+    assert "override:" not in digest
+
+
+def test_queue_entry_consumed_after_digest_hook_runs(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    _write_queue(
+        fake_home,
+        "sess-1",
+        [
+            {
+                "ts": _now_iso(),
+                "agent_type": "code-explorer",
+                "tool_use_id": "tu_a",
+                "tools": ["documentation-refiner"],
+                "inject": [],
+            }
+        ],
+    )
+    out = run_hook(
+        {
+            "session_id": "sess-1",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    assert out.returncode == 0
+    # The tools field on the matching entry should be cleared OR the entry
+    # dropped entirely (inject was empty here → dropped).
+    path = _queue_path(fake_home, "sess-1")
+    with open(path) as f:
+        remaining = [json.loads(l) for l in f if l.strip()]
+    assert remaining == []
+
+
+def test_queue_missing_falls_back_to_profile(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    # No queue file written.
+    out = run_hook(
+        {
+            "session_id": "sess-missing",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "code-explorer" in digest
+    assert "override:" not in digest
+
+
+def test_queue_malformed_silently_falls_back(fake_home):
+    write_manifest(fake_home, SEED_MANIFEST)
+    path = _queue_path(fake_home, "sess-mal")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("not valid jsonl at all\n")
+    out = run_hook(
+        {
+            "session_id": "sess-mal",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    assert out.returncode == 0
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "override:" not in digest
+
+
+def test_queue_consumed_entry_with_empty_tools_does_not_override(fake_home):
+    """An entry whose tools field is already empty (other hook drained) must not steer."""
+    write_manifest(fake_home, SEED_MANIFEST)
+    _write_queue(
+        fake_home,
+        "sess-1",
+        [
+            {
+                "ts": _now_iso(),
+                "agent_type": "code-explorer",
+                "tool_use_id": "tu_a",
+                "tools": [],
+                "inject": ["vocab-acronyms"],
+            }
+        ],
+    )
+    out = run_hook(
+        {
+            "session_id": "sess-1",
+            "agent_type": "code-explorer",
+            "agent_id": "deadbeef",
+        },
+        fake_home,
+    )
+    digest = json.loads(out.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "override:" not in digest
+    # Entry preserved for the other hook to consume.
+    path = _queue_path(fake_home, "sess-1")
+    with open(path) as f:
+        remaining = [json.loads(l) for l in f if l.strip()]
+    assert len(remaining) == 1
+    assert remaining[0]["inject"] == ["vocab-acronyms"]
