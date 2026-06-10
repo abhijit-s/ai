@@ -27,6 +27,7 @@ REPO_ROOT = os.path.dirname(HOOKS_DIR)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+from hooks.lib.override_queue import consume_override
 from hooks.lib.tool_registry_client import (
     load_manifest,
     load_profiles,
@@ -89,11 +90,11 @@ def main():
     # `tool_input.subagent_type` path is the legacy/test-fixture shape and is
     # kept as a fallback so synthetic test inputs continue to work.
     #
-    # KNOWN LIMITATION: the live SubagentStart event does NOT carry the spawn
-    # prompt, so the `<!-- tools: ... -->` override-comment mechanism is
-    # currently unreachable. Override-comment plumbing requires a different
-    # vehicle (e.g., a PreToolUse:Task hook that stashes the override in a
-    # session-scoped file this hook then reads). Tracked as a follow-up.
+    # The live SubagentStart event does NOT carry the spawn prompt, so
+    # `<!-- tools: ... -->` overrides are read from the per-session
+    # override queue populated by `pretool-stash-override.py`. The legacy
+    # prompt-based path stays in place for test inputs that pass the
+    # prompt directly via `tool_input.prompt`.
     tool_input = input_data.get("tool_input") or {}
     agent_type = (
         input_data.get("agent_type")
@@ -101,6 +102,7 @@ def main():
         or "default"
     ).strip()
     prompt = input_data.get("prompt") or tool_input.get("prompt") or ""
+    session_id = input_data.get("session_id") or ""
 
     manifest = load_manifest()
     if not manifest.get("tools"):
@@ -109,8 +111,19 @@ def main():
 
     profiles_doc = load_profiles()
 
-    # Resolve allowed set.
-    override = parse_override(prompt)
+    # Resolve allowed set. Queue takes precedence over prompt-based parsing
+    # because the live event has no prompt at all.
+    override: list[str] | None = None
+    if session_id:
+        try:
+            queued = consume_override(session_id, agent_type, "tools")
+        except Exception:
+            queued = None
+        if queued:
+            override = queued
+    if override is None:
+        override = parse_override(prompt)
+
     if override is not None:
         allowed = resolve_override(override, profiles_doc, manifest)
         profile_label = "override: " + ", ".join(override)
