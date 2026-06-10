@@ -259,7 +259,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/enforce-tool-guidelines.sh",
+            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
             "timeout": 5
           }
         ]
