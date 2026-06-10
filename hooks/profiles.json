@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "profiles": {
+    "default": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+    },
+    "session-default": {
+      "tools": [],
+      "categories": [
+        "search-content",
+        "find-files",
+        "git-state",
+        "list-dir",
+        "ast-search",
+        "semantic-search"
+      ]
+    },
+    "claude": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+    },
+    "general-purpose": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+    },
+    "code-explorer": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "ast-search"]
+    },
+    "code-architect": {
+      "tools": [],
+      "categories": ["search-content", "find-files"]
+    },
+    "code-reviewer": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "ast-search"]
+    },
+    "code-refiner": {
+      "tools": [],
+      "categories": ["search-content", "find-files"]
+    },
+    "architecture-reviewer": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "ast-search"]
+    },
+    "plan-refiner": {
+      "tools": [],
+      "categories": ["search-content", "find-files"]
+    },
+    "documentation-refiner": {
+      "tools": [],
+      "categories": ["search-content"]
+    },
+    "skeptic": {
+      "tools": [],
+      "categories": ["search-content"]
+    },
+    "Explore": {
+      "tools": [],
+      "categories": ["search-content", "find-files", "ast-search", "list-dir"]
+    },
+    "Plan": {
+      "tools": [],
+      "categories": ["search-content", "find-files"]
+    }
+  }
+}
