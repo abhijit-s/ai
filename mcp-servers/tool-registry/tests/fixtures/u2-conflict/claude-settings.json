@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shared": {
+      "command": "node",
+      "args": ["__STUB_PATH__"],
+      "env": { "TOOL_NAMES": "from_settings" }
+    }
+  }
+}
