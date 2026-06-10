@@ -32,6 +32,13 @@
     "ynab": {
       "command": "ynab",
       "args": ["mcp"]
+    },
+    "tool-registry": {
+      "command": "node",
+      "args": [
+        "/Users/a.salvi/.dotfiles/ai/mcp-servers/tool-registry/index.js",
+        "/Users/a.salvi/.dotfiles/ai/"
+      ]
     }
   }
 }

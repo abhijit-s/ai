@@ -188,14 +188,44 @@
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:www.restate.dev)",
       "WebFetch(domain:x.com)",
-      "WebSearch:*",
+      "WebSearch",
       "mcp__betterstack__*",
       "mcp__chartmogul__*",
-      "mcp__claude_ai_*",
+      "mcp__claude_ai_Adobe_for_creativity__*",
+      "mcp__claude_ai_AI_To_Do_List__*",
+      "mcp__claude_ai_Atlassian__*",
+      "mcp__claude_ai_Canva__*",
+      "mcp__claude_ai_Context7__*",
+      "mcp__claude_ai_Databricks_SQL__*",
+      "mcp__claude_ai_Datadog__*",
+      "mcp__claude_ai_Excalidraw__*",
+      "mcp__claude_ai_Figma__*",
+      "mcp__claude_ai_Fireflies__*",
+      "mcp__claude_ai_Gmail__*",
+      "mcp__claude_ai_Google_Calendar__*",
+      "mcp__claude_ai_Google_Drive__*",
+      "mcp__claude_ai_Granola__*",
+      "mcp__claude_ai_Hardstop_MCP__*",
+      "mcp__claude_ai_Harvey__*",
+      "mcp__claude_ai_HubSpot__*",
+      "mcp__claude_ai_Intercom__*",
+      "mcp__claude_ai_Lucid__*",
+      "mcp__claude_ai_Meta_Ads__*",
+      "mcp__claude_ai_Microsoft_365__*",
+      "mcp__claude_ai_Mixpanel__*",
+      "mcp__claude_ai_n8n__*",
+      "mcp__claude_ai_Netlify__*",
+      "mcp__claude_ai_Notion__*",
+      "mcp__claude_ai_PagerDuty__*",
+      "mcp__claude_ai_Slack__*",
+      "mcp__claude_ai_Supernova__*",
+      "mcp__claude_ai_Torii__*",
+      "mcp__claude_ai_Twilio__*",
       "mcp__helpscout__*",
       "mcp__omnifocus__*",
       "mcp__plugin_compound-engineering_context7__*",
       "mcp__superset__*",
+      "mcp__tool-registry__*",
       "mcp__ynab__*",
       "mcp__pencil"
     ],
@@ -215,7 +245,9 @@
       "Bash(psql:-c TRUNCATE TABLE:*)",
       "Bash(psql:-c TRUNCATE:*)"
     ],
-    "ask": ["Bash(gh pr comment:*)"],
+    "ask": [
+      "Bash(gh pr comment:*)"
+    ],
     "defaultMode": "auto"
   },
   "model": "opus",
@@ -342,12 +374,12 @@
     "gopls-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "engineering-compass@engineering-tools": true,
     "feature-flow@engineering-tools": true,
     "knowledge-audit@engineering-tools": true,
     "knowledge-capture@engineering-tools": true,
     "decision-bridge@engineering-tools": true,
-    "kb-curator@ai": true
+    "kb-curator@ai": true,
+    "engineering-compass@engineering-tools": true
   },
   "extraKnownMarketplaces": {
     "compound-engineering": {
@@ -382,10 +414,10 @@
   },
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
   "theme": "auto",
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754059139990
-  },
-  "skipWorkflowUsageWarning": true
+  }
 }

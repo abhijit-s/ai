@@ -1,0 +1,19 @@
+{
+  "name": "mcp-tool-registry",
+  "version": "0.1.0",
+  "description": "MCP server that materialises a profile-filtered tool registry from mcp.json + claude-settings.json + CLI probes",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mcp-tool-registry": "./index.js"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
