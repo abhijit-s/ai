@@ -22,6 +22,20 @@ GUIDELINES_DIR = os.path.join(HOOKS_DIR, "guidelines")
 
 INJECT_RE = re.compile(r"<!--\s*inject:\s*([^>]+?)\s*-->", re.IGNORECASE)
 
+# Make the repo-local hooks package importable so we can pull in the
+# shared override-queue helper. ``HOOKS_DIR`` above points at the
+# installed `~/.claude/hooks` symlink target; the queue module lives
+# alongside this script in ``hooks/lib``.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_THIS_DIR)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+try:
+    from hooks.lib.override_queue import consume_override
+except Exception:  # pragma: no cover — queue is best-effort
+    consume_override = None  # type: ignore[assignment]
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -30,7 +44,18 @@ def load_config():
         return json.load(f)
 
 
-def resolve_slugs(config, agent_type, prompt):
+def resolve_slugs(config, agent_type, prompt, session_id=""):
+    # Queue takes precedence over prompt parsing — the live SubagentStart
+    # event has no prompt, so overrides arrive via the queue populated by
+    # `pretool-stash-override.py`. The prompt path is kept as a fallback
+    # for tests that pass the prompt directly via `tool_input.prompt`.
+    if session_id and consume_override is not None:
+        try:
+            queued = consume_override(session_id, agent_type, "inject")
+        except Exception:
+            queued = None
+        if queued:
+            return queued
     match = INJECT_RE.search(prompt)
     if match:
         return [s.strip() for s in match.group(1).split(",") if s.strip()]
@@ -87,8 +112,8 @@ def main():
     # Live Claude Code SubagentStart event puts `agent_type` at the top level.
     # The nested `tool_input.subagent_type` path is the legacy shape and is
     # kept as a fallback. The live event does NOT carry the spawn prompt, so
-    # `<!-- inject: ... -->` overrides are currently only reachable via the
-    # legacy shape (tests + any future PreToolUse:Task plumbing).
+    # `<!-- inject: ... -->` overrides are routed through the per-session
+    # queue populated by `pretool-stash-override.py`.
     tool_input = input_data.get("tool_input") or {}
     agent_type = (
         input_data.get("agent_type")
@@ -96,12 +121,13 @@ def main():
         or "default"
     ).strip()
     prompt = input_data.get("prompt") or tool_input.get("prompt") or ""
+    session_id = input_data.get("session_id") or ""
 
     config = load_config()
     if not config:
         sys.exit(0)
 
-    slugs = resolve_slugs(config, agent_type, prompt)
+    slugs = resolve_slugs(config, agent_type, prompt, session_id=session_id)
     if not slugs:
         sys.exit(0)
 
