@@ -20,6 +20,22 @@ once per session so:
 - Adding a new MCP server requires zero registry code — just register it
   in `mcp.json` or `claude-settings.json`.
 
+## Setup after clone
+
+The MCP (Model Context Protocol) server's `node_modules/` is gitignored by
+the repo's root `.gitignore`. After a fresh clone of the dotfiles repo,
+run a one-time install:
+
+```bash
+cd mcp-servers/tool-registry
+npm install
+```
+
+This is a post-clone bootstrap step only — no `npm install` runs at
+`SessionStart` or at runtime. Re-run it only when `package-lock.json`
+changes (e.g., an SDK bump). The `obsidian-vault` MCP server has the
+same convention.
+
 ## Where it lives
 
 | Component                                | Path                                                    |
