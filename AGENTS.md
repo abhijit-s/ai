@@ -185,6 +185,10 @@ This applies across all domains — not just software. Explaining a business pro
 - **Commit** → committer agent → **Continue / PR**
 - **PR** → pr-creator agent → **Done**
 
+### Commit & PR Attribution
+
+**Never hardcode Claude attribution into a commit message or PR body.** No `Co-Authored-By: Claude …` trailer, no `🤖 Generated with [Claude Code]` line. Attribution is controlled centrally by the `attribution` block in `settings.json` (set to empty strings here, which suppresses it everywhere). A skill, agent, or template that pastes the trailer into the message body bypasses that setting and re-introduces attribution the user has explicitly turned off. When authoring or editing any commit/PR skill or agent template, omit attribution lines entirely.
+
 ### State Management for Long Tasks
 
 For complex work spanning multiple sessions:
