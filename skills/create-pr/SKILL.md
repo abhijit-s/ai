@@ -39,9 +39,6 @@ If the problem isn't clear from commit messages or code, **stop and ask the user
 ## Problem
 
 [1-2 sentences: the user-facing issue or business need this solves]
-
----
-Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
 Only add a **Core Changes** section for:
