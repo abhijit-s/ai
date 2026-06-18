@@ -261,6 +261,12 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/guard-broad-git.sh",
+            "if": "Bash(git *)",
+            "timeout": 5
           }
         ]
       },
@@ -280,6 +286,16 @@
           {
             "type": "command",
             "command": "python3 ~/.claude/hooks/pretool-stash-override.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/nudge-read-conversion.py",
             "timeout": 5
           }
         ]
@@ -409,7 +425,8 @@
     "knowledge-capture@engineering-tools": true,
     "decision-bridge@engineering-tools": true,
     "kb-curator@ai": true,
-    "engineering-compass@engineering-tools": true
+    "engineering-compass@engineering-tools": true,
+    "memory-kit@memory-kit-marketplace": true
   },
   "extraKnownMarketplaces": {
     "compound-engineering": {
@@ -429,6 +446,12 @@
         "source": "github",
         "repo": "abhijit-s/ai"
       }
+    },
+    "memory-kit-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "abhijit-s/memory-kit"
+      }
     }
   },
   "spinnerTipsOverride": {
@@ -443,6 +466,7 @@
     ]
   },
   "effortLevel": "high",
+  "autoMemoryDirectory": "/Users/a.salvi/Data/Obsidian/Vault/obsidian-vault-abhi.io/Memory/auto",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "auto",
