@@ -253,6 +253,72 @@
   "model": "opus",
   "enableAllProjectMcpServers": true,
   "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/notify.sh -s info -q"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && { payload=$(cat); printf '%s' \"{\\\"event\\\":\\\"awaiting_input\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; { printf '%s claude\\n' \"$SUPACODE_WORKTREE_ID $SUPACODE_TAB_ID $SUPACODE_SURFACE_ID\"; printf '%s' \"$payload\"; } | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; } >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__fff__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && printf '%s' \"{\\\"event\\\":\\\"idle\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\" >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -299,6 +365,88 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && printf '%s' \"{\\\"event\\\":\\\"busy\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\" >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && printf '%s' \"{\\\"event\\\":\\\"awaiting_input\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\" >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && { printf '%s' \"{\\\"event\\\":\\\"session_end\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; printf '%s' \"{\\\"event\\\":\\\"idle\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; } >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/preload-fff-tools.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/refresh-tool-registry.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && printf '%s' \"{\\\"event\\\":\\\"session_start\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\" >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/notify.sh -s done -q"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && { payload=$(cat); printf '%s' \"{\\\"event\\\":\\\"idle\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; { printf '%s claude\\n' \"$SUPACODE_WORKTREE_ID $SUPACODE_TAB_ID $SUPACODE_SURFACE_ID\"; printf '%s' \"$payload\"; } | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\"; } >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -327,82 +475,13 @@
             "command": "~/.dotfiles/ai/hooks/tmux-rename-session.sh"
           }
         ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/notify.sh -s done -q"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/notify.sh -s info -q"
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
-            "timeout": 10,
-            "async": true
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/preload-fff-tools.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/refresh-tool-registry.sh",
-            "timeout": 20
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/audit-search-tools.sh",
-            "timeout": 5
-          }
-        ]
       },
       {
-        "matcher": "mcp__fff__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/audit-search-tools.sh",
-            "timeout": 5
+            "command": "[ -n \"${SUPACODE_SOCKET_PATH:-}\" ] && [ -n \"${SUPACODE_WORKTREE_ID:-}\" ] && [ -n \"${SUPACODE_TAB_ID:-}\" ] && [ -n \"${SUPACODE_SURFACE_ID:-}\" ] && printf '%s' \"{\\\"event\\\":\\\"busy\\\",\\\"v\\\":1,\\\"agent\\\":\\\"claude\\\",\\\"surface_id\\\":\\\"$SUPACODE_SURFACE_ID\\\",\\\"pid\\\":$PPID}\" | /usr/bin/nc -U -w1 \"$SUPACODE_SOCKET_PATH\" >/dev/null 2>&1 || true # supacode-managed-hook",
+            "timeout": 10
           }
         ]
       }
@@ -413,22 +492,29 @@
     "command": "~/.dotfiles/ai/statusline.sh"
   },
   "enabledPlugins": {
-    "ralph-loop@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": false,
-    "ruby-lsp@claude-plugins-official": false,
     "compound-engineering@compound-engineering-plugin": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true,
+    "decision-bridge@engineering-tools": true,
+    "engineering-compass@engineering-tools": true,
     "feature-flow@engineering-tools": true,
+    "frontend-design@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "kb-curator@ai": true,
     "knowledge-audit@engineering-tools": true,
     "knowledge-capture@engineering-tools": true,
-    "decision-bridge@engineering-tools": true,
-    "kb-curator@ai": true,
-    "engineering-compass@engineering-tools": true,
-    "memory-kit@memory-kit-marketplace": true
+    "memory-kit@memory-kit-marketplace": true,
+    "ralph-loop@claude-plugins-official": true,
+    "ruby-lsp@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": false,
+    "promote-to-canon@engineering-tools": true
   },
   "extraKnownMarketplaces": {
+    "ai": {
+      "source": {
+        "source": "github",
+        "repo": "abhijit-s/ai"
+      }
+    },
     "compound-engineering": {
       "source": {
         "source": "github",
@@ -439,12 +525,6 @@
       "source": {
         "source": "github",
         "repo": "Easygo-Surge/engineering-tools"
-      }
-    },
-    "ai": {
-      "source": {
-        "source": "github",
-        "repo": "abhijit-s/ai"
       }
     },
     "memory-kit-marketplace": {
