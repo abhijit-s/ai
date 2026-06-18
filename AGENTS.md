@@ -203,6 +203,7 @@ For complex work spanning multiple sessions:
 - Ensure all linters pass before committing, resolving both errors and warnings
 - **Read code before responding**: Read files before answering questions or making changes. Verify implementation details and API signatures rather than guessing.
 - **Write general-purpose solutions**: Implement logic that solves problems generally. Build solutions that work for all valid inputs rather than hard-coding values from test cases.
+- **Separate engine from configuration (config-not-fork)**: Keep the generic mechanism in code; externalize project/environment-specific *and* tunable values — field names, paths, vocabularies, scoring weights, thresholds, message templates — into one declared config surface (parse with a stdlib parser; let env vars override the common case). **Litmus**: if a project-specific or tunable value appears in engine source, externalize it. Keep only universal algorithms and format-level patterns in code, and state the engine/config line explicitly. Optional accelerators (an external index or service) must degrade to a built-in baseline — never a hard dependency. The tool should be adopted by editing config, not forking.
 - **Avoid over-engineering**: Only make changes that are directly requested or clearly necessary.
   - Don't add features, refactor, or "improve" beyond what was asked
   - Don't add error handling for scenarios that can't happen. Only validate at system boundaries
