@@ -76,7 +76,6 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 | Write or update repo docs | Repo markdown files | `writing-documentation` → `documentation-refiner` agent |
 | Synthesize / connect dots across notes | Vault | `vault-deep-synthesis` |
 | Audit vault quality / find gaps | Vault | `knowledge-audit:audit-scan` |
-| Sync vault docs → repo `docs/ai-context/` | Surge repo | `surge-ai:sync-ai-context` |
 
 **Trigger phrases — these take priority over obsidian-second-brain equivalents:**
 
@@ -231,6 +230,8 @@ Controller)".
 This is a hard requirement, not best-effort. Do not assume the reader knows any acronym regardless of how common it seems in the domain. If a response
 uses no acronyms, the rule is satisfied automatically.
 
+**The same hard requirement applies to opaque identifiers.** Plan-unit IDs (`U1`, `U2`, … from `ce-plan`) and project handles (`ADR-NNN`, `BC-N`) are as uncorrelatable as an unexpanded acronym — on **first use in any response**, attach the short title (`U4 (author base contracts)`, `ADR-082 (domain event transport)`), never the bare handle alone. Bare handles are fine in later uses within the same response. If a response uses none, the rule is satisfied automatically.
+
 If a project maintains a glossary file, also append any new acronyms introduced during the session to it. Keep entries alphabetical: `**ACRONYM** —
 Full expansion. Brief definition.`
 
@@ -272,6 +273,3 @@ Full expansion. Brief definition.`
 | `writing-claude-prompts` | Writing prompts           |
 | `chartmogul-analytics`   | Analyzing revenue metrics |
 | `cooking`                | Recipes and meal planning |
-# graphify
-- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
-When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.
