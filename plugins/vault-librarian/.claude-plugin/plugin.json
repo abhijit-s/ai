@@ -1,5 +1,5 @@
 {
-  "name": "kb-curator",
+  "name": "vault-librarian",
   "description": "Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any .md tree with YAML frontmatter.",
   "version": "1.0.0",
   "author": {

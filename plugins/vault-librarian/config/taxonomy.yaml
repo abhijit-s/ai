@@ -1,6 +1,6 @@
 # Canonical taxonomy for the KnowledgeBase vault.
 #
-# Edit this file when you evolve the taxonomy. The CLI in scripts/kb_curator.py
+# Edit this file when you evolve the taxonomy. The CLI in scripts/vault_librarian.py
 # reads it for every audit/classify/apply operation.
 #
 # Slugs are kebab-case, lowercase, ASCII. Paths are relative to vault.root and

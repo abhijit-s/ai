@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from kb_curator.cli import main
+from vault_librarian.cli import main
 
 
 def run(*argv: str) -> int:

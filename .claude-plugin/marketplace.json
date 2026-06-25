@@ -1,13 +1,13 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ai",
-  "description": "Personal Claude Code plugins — kb-curator for curating Markdown knowledge vaults.",
+  "description": "Personal Claude Code plugins — vault-librarian for curating Markdown knowledge vaults.",
   "owner": {
     "name": "Abhijit Salvi"
   },
   "plugins": [
     {
-      "name": "kb-curator",
+      "name": "vault-librarian",
       "description": "Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any .md tree with YAML frontmatter.",
       "author": {
         "name": "Abhijit Salvi"
@@ -16,7 +16,7 @@
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/abhijit-s/ai.git",
-        "path": "plugins/kb-curator",
+        "path": "plugins/vault-librarian",
         "ref": "main"
       }
     }

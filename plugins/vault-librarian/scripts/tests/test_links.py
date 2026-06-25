@@ -1,6 +1,6 @@
 """Tests for link parsing, code-span filtering, and Levenshtein."""
 
-from kb_curator.links import (
+from vault_librarian.links import (
     _NON_LINK_TARGET,
     _code_span_ranges,
     find_wiki_links,

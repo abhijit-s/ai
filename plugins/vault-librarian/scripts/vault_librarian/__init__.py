@@ -1,4 +1,4 @@
-"""kb_curator — curate Markdown knowledge vaults.
+"""vault_librarian — curate Markdown knowledge vaults.
 
 Public surface lives in submodules:
 

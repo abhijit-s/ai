@@ -20,7 +20,7 @@ DEFAULT_CONFIG = (Path(__file__).resolve().parent.parent.parent
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="kb_curator",
+        prog="vault_librarian",
         description="Curate a Markdown knowledge vault — see README.md.",
     )
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG,

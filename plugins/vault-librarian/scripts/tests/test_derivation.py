@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from kb_curator.derivation import (
+from vault_librarian.derivation import (
     canonical_filename,
     classify_text,
     derive_kind,
     derive_placement,
 )
-from kb_curator.model import load_taxonomy
+from vault_librarian.model import load_taxonomy
 
 
 # ---------------------------------------------------------------------------

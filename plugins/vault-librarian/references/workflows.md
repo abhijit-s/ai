@@ -7,10 +7,10 @@ Detailed step-by-step for each workflow named in `SKILL.md`. Open this file when
 Goal: produce a fresh epistemological map. Read-only.
 
 ```bash
-python scripts/kb_curator.py scan --json > /tmp/kb-inventory.json
-python scripts/kb_curator.py scan                       # human summary
-python scripts/kb_curator.py audit                      # drift report
-python scripts/kb_curator.py taxonomy show              # current canonical shape
+python scripts/vault_librarian.py scan --json > /tmp/kb-inventory.json
+python scripts/vault_librarian.py scan                       # human summary
+python scripts/vault_librarian.py audit                      # drift report
+python scripts/vault_librarian.py taxonomy show              # current canonical shape
 ```
 
 Report back to the user with:
@@ -24,7 +24,7 @@ Report back to the user with:
 
 Goal: produce a placement + frontmatter proposal for one note.
 
-1. `python scripts/kb_curator.py classify <path> --json`
+1. `python scripts/vault_librarian.py classify <path> --json`
 2. Read the note. State its **central question** in one sentence — yours, not the script's.
 3. Compare your central question against the script's top suggestion and its alternates. The mechanical score is a prior; your judgment is the verdict.
 4. If you change the category vs the script's suggestion, say why in one sentence.
@@ -32,7 +32,7 @@ Goal: produce a placement + frontmatter proposal for one note.
    - Target directory (relative to vault root)
    - Proposed frontmatter (full YAML block)
    - Inbound links impact (if the file already exists in the vault — grep for `[[<filename without extension>]]`)
-6. After approval: move the file (if needed), then `python scripts/kb_curator.py apply <new-path> --category <slug> --tags <a,b,c> --title "<H1>"`.
+6. After approval: move the file (if needed), then `python scripts/vault_librarian.py apply <new-path> --category <slug> --tags <a,b,c> --title "<H1>"`.
 
 ## C — Repair existing frontmatter
 
@@ -41,9 +41,9 @@ Goal: bring one or more files into conformance with the taxonomy.
 For a single file:
 
 ```bash
-python scripts/kb_curator.py classify <path>           # expected shape
-python scripts/kb_curator.py apply <path> --dry-run    # show diff first
-python scripts/kb_curator.py apply <path>              # apply
+python scripts/vault_librarian.py classify <path>           # expected shape
+python scripts/vault_librarian.py apply <path> --dry-run    # show diff first
+python scripts/vault_librarian.py apply <path>              # apply
 ```
 
 For a batch (after running `audit`):
@@ -88,13 +88,13 @@ Goal: a sweeping cleanup, e.g., after several months of unstructured note-taking
 
 This is the most dangerous workflow because of `[[wiki-link]]` breakage. Default to "show, confirm, then act" at every step.
 
-1. **Snapshot**: `python scripts/kb_curator.py scan --json > /tmp/kb-before.json` and commit the vault to git first.
+1. **Snapshot**: `python scripts/vault_librarian.py scan --json > /tmp/kb-before.json` and commit the vault to git first.
 2. **Audit** with `--json`, then categorise findings into batches you can apply independently.
 3. **Phase 1 — casing**: safe, no file moves. Apply in one batch.
 4. **Phase 2 — frontmatter fills**: derive missing required fields. Safe.
 5. **Phase 3 — category re-mapping** (no file move): if a note's frontmatter says category X but the path says Y, default to Y unless the user disagrees. No moves at this phase — only frontmatter edits.
 6. **Phase 4 — physical moves**: for each move, grep the vault for `[[<filename>]]` and warn before moving. Move in small batches; re-grep between batches.
 7. **Phase 5 — directory pruning**: empty directories left behind get removed.
-8. **Verify**: `python scripts/kb_curator.py scan` and `audit` — counts should match expectations from the plan.
+8. **Verify**: `python scripts/vault_librarian.py scan` and `audit` — counts should match expectations from the plan.
 
 When in doubt, prefer two small phases over one large one. Git history is your friend; rebases on an Obsidian vault are not.

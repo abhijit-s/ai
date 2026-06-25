@@ -21,7 +21,7 @@ from textwrap import dedent
 
 import pytest
 
-# Make `kb_curator` importable without installing the package.
+# Make `vault_librarian` importable without installing the package.
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 

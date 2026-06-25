@@ -1,4 +1,4 @@
-# kb_curator development tasks.
+# vault_librarian development tasks.
 #
 # Default `make` target is `test` so an AI feedback loop can run `make` to
 # get a deterministic pass/fail signal in under a few seconds.
@@ -27,12 +27,12 @@ test-watch:
 	$(PY) -m pytest_watch -- $(PYTEST_ARGS)
 
 lint:
-	$(PY) -m compileall -q kb_curator kb_curator.py
+	$(PY) -m compileall -q vault_librarian vault_librarian.py
 
 sanity:
-	$(PY) kb_curator.py audit --json | $(PY) -c "import json,sys; d=json.load(sys.stdin)['summary']; print('audit:', d); sys.exit(0 if d.get('error',0)==0 else 1)"
-	$(PY) kb_curator.py links check | head -3
-	$(PY) kb_curator.py taxonomy show | head -5
+	$(PY) vault_librarian.py audit --json | $(PY) -c "import json,sys; d=json.load(sys.stdin)['summary']; print('audit:', d); sys.exit(0 if d.get('error',0)==0 else 1)"
+	$(PY) vault_librarian.py links check | head -3
+	$(PY) vault_librarian.py taxonomy show | head -5
 
 install:
 	$(PY) -m pip install -e ".[dev]"

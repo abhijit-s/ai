@@ -1,6 +1,6 @@
 """Unit tests for the slug helpers."""
 
-from kb_curator.slugs import is_slug, slugify
+from vault_librarian.slugs import is_slug, slugify
 
 
 class TestSlugifyKebab:

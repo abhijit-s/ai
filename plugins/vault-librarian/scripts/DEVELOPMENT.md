@@ -1,13 +1,13 @@
 # Development notes
 
-For maintainers — humans and AI agents — touching the `kb_curator` Python package.
+For maintainers — humans and AI agents — touching the `vault_librarian` Python package.
 
 ## Project shape
 
 ```
 scripts/
-├── kb_curator.py         # 21-line shim; just imports cli.main()
-├── kb_curator/           # actual package
+├── vault_librarian.py         # 21-line shim; just imports cli.main()
+├── vault_librarian/           # actual package
 │   ├── __init__.py       # version
 │   ├── cli.py            # argparse + dispatch table
 │   ├── commands.py       # one `cmd_<verb>` per subcommand
@@ -28,7 +28,7 @@ scripts/
 
 ### 1. Mechanics in Python, judgement in the agent
 
-The skill couples a deterministic CLI (`kb_curator.py`) with prose guidance (`SKILL.md`) plus configuration (`taxonomy.yaml`). When deciding where new behaviour belongs:
+The skill couples a deterministic CLI (`vault_librarian.py`) with prose guidance (`SKILL.md`) plus configuration (`taxonomy.yaml`). When deciding where new behaviour belongs:
 
 - **Filesystem walks, regex matches, frontmatter parsing → Python.** The CLI must do them the same way every time.
 - **Where a note belongs, whether a new area is warranted, what tag captures recall best → agent or human.** Don't bake taste into Python.
@@ -135,9 +135,9 @@ For commands that legitimately need multi-pass behaviour (e.g., `taxonomy refres
 
 ## Release / sharing
 
-The plugin is installed via `claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator` and cached under `~/.claude/plugins/cache/ai/kb-curator/<version>/`. When you make a backward-incompatible change to the config schema:
+The plugin is installed via `claude plugin install https://github.com/abhijit-s/ai.git --plugin vault-librarian` and cached under `~/.claude/plugins/cache/ai/vault-librarian/<version>/`. When you make a backward-incompatible change to the config schema:
 
-1. Bump `__version__` in `kb_curator/__init__.py`.
+1. Bump `__version__` in `vault_librarian/__init__.py`.
 2. Note the breaking change at the top of `README.md`.
 3. Update `taxonomy init` so freshly generated configs use the new shape.
 

@@ -1,13 +1,13 @@
 """Tests for the frontmatter module — splitting, walking, writing."""
 
-from kb_curator.frontmatter import (
+from vault_librarian.frontmatter import (
     FM_DELIM,
     _first_h1,
     _split_frontmatter,
     walk_notes,
     write_frontmatter,
 )
-from kb_curator.model import load_taxonomy
+from vault_librarian.model import load_taxonomy
 
 
 class TestSplitFrontmatter:

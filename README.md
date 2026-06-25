@@ -13,7 +13,7 @@ This repository serves two roles:
 ### Installing a Plugin
 
 ```bash
-claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator
+claude plugin install https://github.com/abhijit-s/ai.git --plugin vault-librarian
 ```
 
 ### Local Development
@@ -33,12 +33,12 @@ ai/
 ├── .claude-plugin/
 │   └── marketplace.json      ← plugin marketplace manifest
 ├── plugins/
-│   └── kb-curator/           ← Markdown vault curation plugin
+│   └── vault-librarian/           ← Markdown vault curation plugin
 │       ├── .claude-plugin/
 │       │   └── plugin.json
-│       ├── skills/kb-curator/
+│       ├── skills/vault-librarian/
 │       │   └── SKILL.md
-│       ├── scripts/          ← kb_curator.py Python package
+│       ├── scripts/          ← vault_librarian.py Python package
 │       ├── config/
 │       └── references/
 ├── agents/                   ← subagent definitions
@@ -99,7 +99,7 @@ flowchart LR
     end
 
     subgraph Plugins
-        kbc["kb-curator"]
+        kbc["vault-librarian"]
     end
 
     cm --> com
@@ -214,7 +214,7 @@ claude plugin install https://github.com/abhijit-s/ai.git --plugin <plugin-name>
 
 | Plugin          | Skill         | Purpose                                                                 |
 | --------------- | ------------- | ----------------------------------------------------------------------- |
-| **kb-curator**  | `/kb-curator` | Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any `.md` tree with YAML frontmatter. |
+| **vault-librarian**  | `/vault-librarian` | Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any `.md` tree with YAML frontmatter. |
 
 ---
 

@@ -1,10 +1,10 @@
 [project]
-name = "kb_curator"
+name = "vault_librarian"
 version = "0.2.0"
 description = "Curate Markdown knowledge vaults — catalogue, classify, audit, repair, link-check, rename, enrich."
 requires-python = ">=3.10"
 # Runtime: stdlib only. PyYAML is auto-detected and used when available;
-# the scoped fallback parser in kb_curator.yaml_io handles config + frontmatter.
+# the scoped fallback parser in vault_librarian.yaml_io handles config + frontmatter.
 dependencies = []
 
 [project.optional-dependencies]
@@ -15,7 +15,7 @@ dev = [
 ]
 
 [project.scripts]
-kb-curator = "kb_curator.cli:main"
+vault-librarian = "vault_librarian.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

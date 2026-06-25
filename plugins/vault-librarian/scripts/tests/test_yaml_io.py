@@ -5,7 +5,7 @@ output is stable. These tests pin that stability — break them and you
 break diff hygiene across the entire vault.
 """
 
-from kb_curator.yaml_io import yaml_dump_frontmatter, yaml_load
+from vault_librarian.yaml_io import yaml_dump_frontmatter, yaml_load
 
 
 class TestYamlLoad:

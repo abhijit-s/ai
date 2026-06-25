@@ -48,7 +48,7 @@ This suite is designed for tight iteration:
 - Failures point at the specific behaviour broken, not at line numbers in a single 1000-line file.
 - The synthetic-vault style means a misunderstanding of the vault model surfaces as a test failure rather than weird production behaviour.
 
-When an AI agent changes `kb_curator/` code, the expected workflow is:
+When an AI agent changes `vault_librarian/` code, the expected workflow is:
 
 1. Run `make test`.
 2. If a test fails, read its name + the assertion to understand the contract.

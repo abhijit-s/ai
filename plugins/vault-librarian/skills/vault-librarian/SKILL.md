@@ -1,14 +1,14 @@
 ---
-name: kb-curator
+name: vault-librarian
 description: Catalogue, classify, and curate a Markdown knowledge vault (Obsidian / mkdocs / any directory tree of .md files with YAML frontmatter). Use when auditing taxonomy, classifying new notes, repairing frontmatter, renaming files safely, checking broken wiki/Markdown links, detecting themes, injecting emoji sigils, evolving categories, or bootstrapping a taxonomy from an existing vault. Covers epistemology mapping, taxonomy drift, frontmatter schema, controlled tag vocabulary, README indexes, and link integrity.
 allowed-tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 
 Curate a Markdown knowledge vault as a living taxonomy. The vault is structured as a hierarchy of **Pillars → Areas → Sub-areas → Topics → Notes**, with every note carrying YAML frontmatter (`title`, `category`, `tags`, plus derived fields). This skill keeps the taxonomy coherent, classifies new material into it, and proposes principled extensions when reality outgrows the current shape.
 
-The skill works on **any vault that matches the configured shape** — Obsidian, mkdocs-style, or a plain directory tree. Conventions live in `config/taxonomy.yaml` (path regexes, link syntax, slug case, date source). To bootstrap from an existing vault, run `python scripts/kb_curator.py taxonomy init --root <vault> --out config/taxonomy.yaml`.
+The skill works on **any vault that matches the configured shape** — Obsidian, mkdocs-style, or a plain directory tree. Conventions live in `config/taxonomy.yaml` (path regexes, link syntax, slug case, date source). To bootstrap from an existing vault, run `python scripts/vault_librarian.py taxonomy init --root <vault> --out config/taxonomy.yaml`.
 
-The deterministic mechanics (walking the tree, parsing frontmatter, writing back YAML) live in `scripts/kb_curator.py`. The judgment (where does this note belong? does this warrant a new area? which tags actually carry signal?) is **your** job, informed by the canonical taxonomy in `config/taxonomy.yaml`.
+The deterministic mechanics (walking the tree, parsing frontmatter, writing back YAML) live in `scripts/vault_librarian.py`. The judgment (where does this note belong? does this warrant a new area? which tags actually carry signal?) is **your** job, informed by the canonical taxonomy in `config/taxonomy.yaml`.
 
 ## When to activate
 
@@ -75,8 +75,8 @@ Tag discipline: tags that appear only once are noise. The CLI's `audit` command 
 
 Use when the user asks to "understand the KnowledgeBase" or you need a fresh map before doing anything else.
 
-1. Run `python scripts/kb_curator.py scan --json > /tmp/kb-inventory.json` to produce the inventory.
-2. Run `python scripts/kb_curator.py audit` to surface drift (path↔category mismatches, missing frontmatter, missing READMEs, singleton tags, undefined categories).
+1. Run `python scripts/vault_librarian.py scan --json > /tmp/kb-inventory.json` to produce the inventory.
+2. Run `python scripts/vault_librarian.py audit` to surface drift (path↔category mismatches, missing frontmatter, missing READMEs, singleton tags, undefined categories).
 3. Read `config/taxonomy.yaml` and compare against the scan summary. Report to the user:
    - Pillar/area shape (counts of notes per area)
    - Drift summary (top issues, not every issue)
@@ -92,7 +92,7 @@ Use when a `.md` file exists outside the vault, lives in the wrong place, or lac
 2. Match the central question against `taxonomy.yaml` categories. Prefer:
    - An exact existing area
    - The pillar that owns the closest existing area
-3. Run `python scripts/kb_curator.py classify <path>` for a mechanical suggestion (filename/content keyword match against the taxonomy). Treat its output as a **prior**, not a verdict.
+3. Run `python scripts/vault_librarian.py classify <path>` for a mechanical suggestion (filename/content keyword match against the taxonomy). Treat its output as a **prior**, not a verdict.
 4. Decide:
    - **Fits cleanly** → propose target path + frontmatter to the user, then apply with `apply`.
    - **Fits with adjustment** → suggest the closest area and explain the trade-off.
@@ -103,13 +103,13 @@ Use when a `.md` file exists outside the vault, lives in the wrong place, or lac
 
 Use when `audit` flags a file or the user points at one.
 
-1. `python scripts/kb_curator.py classify <path>` to compute the **expected** category/tags from path + content.
+1. `python scripts/vault_librarian.py classify <path>` to compute the **expected** category/tags from path + content.
 2. Diff against the file's current frontmatter.
 3. For each discrepancy:
    - **Casing only** (`category: GMP Scheduler` → `gmp-scheduler`): fix without asking.
    - **Category value changed**: ask before changing, since it implies a re-classification.
    - **Missing tags**: add the canonical pillar/area tag without asking; ask before adding cross-cutting ones.
-4. Write changes with `python scripts/kb_curator.py apply <path> --category <c> --tags <t1,t2,…>` or via the `Edit` tool for surgical edits.
+4. Write changes with `python scripts/vault_librarian.py apply <path> --category <c> --tags <t1,t2,…>` or via the `Edit` tool for surgical edits.
 
 ### Workflow D — Evolve the taxonomy
 
@@ -133,10 +133,10 @@ Use when the user wants to "clean up" or "re-organise". Treat with caution — b
 
 Use when the user asks to "check links" / "find broken links", or after a rename pass.
 
-1. `python scripts/kb_curator.py links check` — lists every unresolved `[[link]]`, grouped by source file, with closest-match suggestions (Levenshtein on note stems).
+1. `python scripts/vault_librarian.py links check` — lists every unresolved `[[link]]`, grouped by source file, with closest-match suggestions (Levenshtein on note stems).
 2. Attachments (`.png`, `.pdf`, …) and absolute-path-style links (`Folder/Subfolder/Note`) are resolved correctly and not flagged.
-3. `python scripts/kb_curator.py links repair --dry-run` — show the link rewrites the tool would apply when the suggestion is unambiguous (exactly one close match).
-4. `python scripts/kb_curator.py links repair` to apply. Add `--aggressive` to repair when there are multiple close matches; only use after eyeballing the candidates.
+3. `python scripts/vault_librarian.py links repair --dry-run` — show the link rewrites the tool would apply when the suggestion is unambiguous (exactly one close match).
+4. `python scripts/vault_librarian.py links repair` to apply. Add `--aggressive` to repair when there are multiple close matches; only use after eyeballing the candidates.
 
 Real broken-link sources to watch for: **smart quotes vs straight quotes** (`'P'` vs `'P'`), **em-dash vs hyphen** drift, and **typos in the link target**. Templates and placeholder text like `[[Note Name]]` will always show as broken; that's expected.
 
@@ -144,12 +144,12 @@ Real broken-link sources to watch for: **smart quotes vs straight quotes** (`'P'
 
 Use when the user wants files renamed to match their titles, or when audit reveals filename↔H1 drift.
 
-1. `python scripts/kb_curator.py naming check` — lists files whose `frontmatter.title` (or H1) differs from the canonical filename. The rules come from `naming:` in `taxonomy.yaml` (underscore→space, strip leading emoji, max length, illegal chars).
+1. `python scripts/vault_librarian.py naming check` — lists files whose `frontmatter.title` (or H1) differs from the canonical filename. The rules come from `naming:` in `taxonomy.yaml` (underscore→space, strip leading emoji, max length, illegal chars).
 2. READMEs (`README.md`) and Excalidraw files (`*.excalidraw.md`) are intentionally skipped — they have filesystem conventions that override title-based naming.
 3. To rename one file with **automatic inbound link repair**:
    ```
-   python scripts/kb_curator.py naming rename --path "<file>" --dry-run   # preview
-   python scripts/kb_curator.py naming rename --path "<file>"             # apply
+   python scripts/vault_librarian.py naming rename --path "<file>" --dry-run   # preview
+   python scripts/vault_librarian.py naming rename --path "<file>"             # apply
    ```
    The script rewrites every `[[old-stem]]` in the vault to `[[new-stem]]` before renaming the file, so inbound links survive.
 4. For batch renames, drive `naming rename` in a loop with explicit user sign-off per file or per group.
@@ -158,8 +158,8 @@ Use when the user wants files renamed to match their titles, or when audit revea
 
 Use when the user wants visual category cues in titles.
 
-1. `python scripts/kb_curator.py emojis apply --dry-run` — preview the H1 edits.
-2. `python scripts/kb_curator.py emojis apply` — write. The script reads `emojis:` in `taxonomy.yaml` (category → emoji) and prefixes the H1 of every note in that category.
+1. `python scripts/vault_librarian.py emojis apply --dry-run` — preview the H1 edits.
+2. `python scripts/vault_librarian.py emojis apply` — write. The script reads `emojis:` in `taxonomy.yaml` (category → emoji) and prefixes the H1 of every note in that category.
 3. **Idempotent**: re-runs do not double-prefix if any configured emoji already leads the H1.
 4. To skip a category, remove or comment out its line in `taxonomy.yaml > emojis:`.
 
@@ -169,36 +169,36 @@ This is a low-stakes cosmetic pass but a high-visibility one. Always dry-run fir
 
 Use when a note is missing useful cross-cutting tags (`performance`, `security`, `observability`, …) and you don't want to read 300 lines of body to figure out which apply.
 
-1. `python scripts/kb_curator.py tags suggest <path>` — runs the `inference_rules:` list from `taxonomy.yaml` against the file's title+body. Each rule's `keywords` (case-insensitive substring match) gates whether its `tag` is suggested.
-2. `python scripts/kb_curator.py tags suggest <path> --apply` — append the suggested tags to the file's frontmatter (idempotent: tags already present are not duplicated).
+1. `python scripts/vault_librarian.py tags suggest <path>` — runs the `inference_rules:` list from `taxonomy.yaml` against the file's title+body. Each rule's `keywords` (case-insensitive substring match) gates whether its `tag` is suggested.
+2. `python scripts/vault_librarian.py tags suggest <path> --apply` — append the suggested tags to the file's frontmatter (idempotent: tags already present are not duplicated).
 3. To extend inference: add a new entry to `inference_rules:`. Rules should be narrow — a broad keyword (`"the"`, `"data"`) will flood every note.
 
 ### Workflow J — Theme detection (vocabulary evolution)
 
 Use when the user asks "what themes run through the vault?" or before proposing new controlled tags.
 
-1. `python scripts/kb_curator.py themes detect` — groups tags by co-occurrence into clusters. Default threshold: pairs must share ≥4 notes. Universal connector tags (`index`, `reference`) and category slugs are excluded so cross-cutting themes surface.
+1. `python scripts/vault_librarian.py themes detect` — groups tags by co-occurrence into clusters. Default threshold: pairs must share ≥4 notes. Universal connector tags (`index`, `reference`) and category slugs are excluded so cross-cutting themes surface.
 2. Read the clusters as hypotheses, not verdicts. A real theme has a one-sentence name; if you can't name the cluster, it's just shared vocabulary.
 3. When a cluster looks like a stable theme, promote its anchor tag to `tags:` in `taxonomy.yaml` (controlled vocabulary), or add an `inference_rules:` entry that auto-tags new notes into it.
 
 ## Using the CLI
 
-The Python entrypoint is `scripts/kb_curator.py`. It is the single source of mechanics — do not re-implement frontmatter parsing or directory walking in ad-hoc shell.
+The Python entrypoint is `scripts/vault_librarian.py`. It is the single source of mechanics — do not re-implement frontmatter parsing or directory walking in ad-hoc shell.
 
 ```
-python scripts/kb_curator.py scan [--json] [--root <vault>]
-python scripts/kb_curator.py audit [--json]
-python scripts/kb_curator.py classify <path> [--json]
-python scripts/kb_curator.py apply <path> [--category <slug>] [--tags <a,b,c>] [--title <t>] [--dry-run]
-python scripts/kb_curator.py taxonomy show
-python scripts/kb_curator.py taxonomy refresh [--apply]
-python scripts/kb_curator.py links check [--json]
-python scripts/kb_curator.py links repair [--dry-run] [--aggressive]
-python scripts/kb_curator.py naming check [--json]
-python scripts/kb_curator.py naming rename --path <file> [--dry-run]   # rewrites inbound links
-python scripts/kb_curator.py emojis apply [--dry-run]
-python scripts/kb_curator.py tags suggest <path> [--apply]
-python scripts/kb_curator.py themes detect [--min-cooccurrence N]
+python scripts/vault_librarian.py scan [--json] [--root <vault>]
+python scripts/vault_librarian.py audit [--json]
+python scripts/vault_librarian.py classify <path> [--json]
+python scripts/vault_librarian.py apply <path> [--category <slug>] [--tags <a,b,c>] [--title <t>] [--dry-run]
+python scripts/vault_librarian.py taxonomy show
+python scripts/vault_librarian.py taxonomy refresh [--apply]
+python scripts/vault_librarian.py links check [--json]
+python scripts/vault_librarian.py links repair [--dry-run] [--aggressive]
+python scripts/vault_librarian.py naming check [--json]
+python scripts/vault_librarian.py naming rename --path <file> [--dry-run]   # rewrites inbound links
+python scripts/vault_librarian.py emojis apply [--dry-run]
+python scripts/vault_librarian.py tags suggest <path> [--apply]
+python scripts/vault_librarian.py themes detect [--min-cooccurrence N]
 ```
 
 All commands honour `--config <path>` (defaults to `config/taxonomy.yaml` in the skill directory). The vault root comes from `vault.root` in the config; override with `--root`.

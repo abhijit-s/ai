@@ -1,4 +1,4 @@
-# kb-curator
+# vault-librarian
 
 A Claude Code plugin for curating Markdown knowledge vaults — Obsidian, mkdocs-style, or any directory tree of `.md` files with YAML frontmatter.
 
@@ -17,12 +17,12 @@ Catalogues, classifies, audits, repairs, renames, links, and tags notes. Driven 
 - **Detect themes** by clustering co-occurring tags across the vault.
 - **Enrich** frontmatter with derived fields (pillar, sub_area, topic, kind, created, updated).
 
-Zero non-stdlib Python dependencies. Single file at `scripts/kb_curator.py`. PyYAML used when present, scoped fallback parser otherwise.
+Zero non-stdlib Python dependencies. Single file at `scripts/vault_librarian.py`. PyYAML used when present, scoped fallback parser otherwise.
 
 ## Install
 
 ```bash
-claude plugin install https://github.com/abhijit-s/ai.git --plugin kb-curator
+claude plugin install https://github.com/abhijit-s/ai.git --plugin vault-librarian
 ```
 
 Claude Code activates the skill whenever you mention the vault, frontmatter, tags, taxonomy, or any keyword in its description.
@@ -30,14 +30,14 @@ Claude Code activates the skill whenever you mention the vault, frontmatter, tag
 To use the CLI directly, find the cached plugin path and run:
 
 ```bash
-python3 ~/.claude/plugins/cache/ai/kb-curator/<version>/scripts/kb_curator.py <command>
+python3 ~/.claude/plugins/cache/ai/vault-librarian/<version>/scripts/vault_librarian.py <command>
 ```
 
 ## Quick start on an existing vault
 
 ```bash
 # 1. Scan an arbitrary vault and emit a starter config.
-python3 scripts/kb_curator.py taxonomy init \
+python3 scripts/vault_librarian.py taxonomy init \
     --root /path/to/your/vault \
     --out config/taxonomy.yaml
 
@@ -45,13 +45,13 @@ python3 scripts/kb_curator.py taxonomy init \
 #    curate the starter tag list, set link_syntax / slug_case as needed.
 
 # 3. See what's in your vault.
-python3 scripts/kb_curator.py scan
+python3 scripts/vault_librarian.py scan
 
 # 4. Audit for drift.
-python3 scripts/kb_curator.py audit
+python3 scripts/vault_librarian.py audit
 
 # 5. Backfill derived frontmatter fields.
-python3 scripts/kb_curator.py enrich
+python3 scripts/vault_librarian.py enrich
 ```
 
 ## CLI reference
@@ -116,16 +116,16 @@ A `taxonomy init` run pre-fills the first eight; the last three you add by taste
 
 ```bash
 # Generate a starter taxonomy from your existing vault.
-python3 scripts/kb_curator.py taxonomy init \
+python3 scripts/vault_librarian.py taxonomy init \
     --root ~/notes \
     --pillar-pattern '^[A-Z]-(.+)$' \   # accept letter-prefixed pillars
     --out ~/notes/.taxonomy.yaml
 
 # Inspect:
-python3 scripts/kb_curator.py --config ~/notes/.taxonomy.yaml taxonomy show
+python3 scripts/vault_librarian.py --config ~/notes/.taxonomy.yaml taxonomy show
 
 # Audit (initially noisy — that's the point):
-python3 scripts/kb_curator.py --config ~/notes/.taxonomy.yaml audit
+python3 scripts/vault_librarian.py --config ~/notes/.taxonomy.yaml audit
 ```
 
 If your vault has no numeric prefixes, set `pillar_pattern: '^(.+)$'` in the generated config. If you don't use Obsidian wiki-links, set `link_syntax.type: markdown`. If you don't use git, set `dates.source: mtime`. Defaults match Obsidian conventions.
@@ -150,15 +150,15 @@ Each workflow is a few commands plus the judgement around them. Detailed step-by
 ## Architecture
 
 ```
-kb-curator/
-├── skills/kb-curator/
+vault-librarian/
+├── skills/vault-librarian/
 │   └── SKILL.md            # Agent guidance — when to activate, philosophy, workflows
 ├── README.md               # This file
 ├── config/
 │   └── taxonomy.yaml       # Single source of policy
 ├── scripts/                # Python project; treat as project root for `make`
-│   ├── kb_curator.py       # 21-line CLI entrypoint shim
-│   ├── kb_curator/         # Package — eight focused modules, ~150 lines each
+│   ├── vault_librarian.py       # 21-line CLI entrypoint shim
+│   ├── vault_librarian/         # Package — eight focused modules, ~150 lines each
 │   ├── tests/              # pytest suite — synthetic vault fixtures
 │   ├── pyproject.toml
 │   ├── Makefile            # `make test` / `make sanity`
@@ -169,7 +169,7 @@ kb-curator/
     └── workflows.md        # Step-by-step playbooks
 ```
 
-The Python package is the deterministic mechanic; the `SKILL.md` carries the judgement. Re-implementing parsing inline in an agent loop is an anti-pattern — always shell out to `kb_curator.py`.
+The Python package is the deterministic mechanic; the `SKILL.md` carries the judgement. Re-implementing parsing inline in an agent loop is an anti-pattern — always shell out to `vault_librarian.py`.
 
 For maintainers, see `scripts/DEVELOPMENT.md`. The test suite (`scripts/tests/`) doubles as executable documentation of the contract and runs in under a second — the intended AI feedback loop is `make test`.
 
@@ -197,4 +197,4 @@ Every write command is idempotent:
 
 ## License
 
-MIT. Source at `plugins/kb-curator/` in the [ai](https://github.com/abhijit-s/ai) repo.
+MIT. Source at `plugins/vault-librarian/` in the [ai](https://github.com/abhijit-s/ai) repo.
