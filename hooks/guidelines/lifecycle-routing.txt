@@ -1,0 +1,21 @@
+Lifecycle-stack routing (ADR-097). compound-engineering (ce-*) is the single primary
+ideate -> plan -> build -> review -> commit spine. Reach for it by default:
+
+  brainstorm -> ce-brainstorm · ideate -> ce-ideate · plan -> ce-plan · work -> ce-work ·
+  review -> ce-code-review · commit -> ce-commit / ce-commit-push-pr · debug -> ce-debug
+
+Two sanctioned non-spine routes are reference RECIPES — read the file, not a /-invocable
+skill (feature-flow is cut):
+  - deep domain framing (subdomain-depth canon work touching a bounded context) ->
+    shared/recipes/frame-requirement.md
+  - transport-neutral API contract -> shared/recipes/api-design.md
+
+superpowers = technique substrate (test-driven-development, systematic-debugging,
+worktrees), invoked from WITHIN the spine — never a competing spine.
+
+Anti-pattern: do NOT bolt a StructuredOutput schema onto ce-* persona agents in a
+hand-rolled Workflow — run the ce-* skill (mode:agent) instead.
+
+Canonical source: lifecycle_routing.yaml (shipped in knowledge-audit / engineering-library
+shared/scripts; surfaced at top-level session start by the lifecycle emitter). This slug is
+the sub-agent-inheritance fallback for that block.

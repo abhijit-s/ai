@@ -24,6 +24,11 @@
       "title": "Vault Skill Routing \u2014 obsidian-second-brain vs engineering-tools",
       "category": "routing",
       "order": 1
+    },
+    "lifecycle-routing": {
+      "title": "Lifecycle-Stack Routing \u2014 ce-* spine (ADR-097)",
+      "category": "routing",
+      "order": 2
     }
   },
   "profiles": {
@@ -31,19 +36,22 @@
       "tool-hierarchy",
       "bash-commands",
       "vocab-acronyms",
-      "vault-skill-routing"
+      "vault-skill-routing",
+      "lifecycle-routing"
     ],
     "claude": [
       "tool-hierarchy",
       "bash-commands",
       "vocab-acronyms",
-      "vault-skill-routing"
+      "vault-skill-routing",
+      "lifecycle-routing"
     ],
     "general-purpose": [
       "tool-hierarchy",
       "bash-commands",
       "vocab-acronyms",
-      "vault-skill-routing"
+      "vault-skill-routing",
+      "lifecycle-routing"
     ],
     "Explore": [
       "tool-hierarchy",
