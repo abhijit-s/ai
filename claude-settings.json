@@ -189,7 +189,6 @@
       "WebFetch(domain:www.restate.dev)",
       "WebFetch(domain:x.com)",
       "WebSearch",
-      "mcp__betterstack__*",
       "mcp__chartmogul__*",
       "mcp__claude_ai_Adobe_for_creativity__*",
       "mcp__claude_ai_AI_To_Do_List__*",
@@ -493,12 +492,8 @@
   },
   "enabledPlugins": {
     "compound-engineering@compound-engineering-plugin": true,
-    "decision-bridge@engineering-tools": true,
-    "engineering-compass@engineering-tools": true,
-    "feature-flow@engineering-tools": true,
     "frontend-design@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
-    "kb-curator@ai": true,
     "knowledge-audit@engineering-tools": true,
     "knowledge-capture@engineering-tools": true,
     "memory-kit@memory-kit-marketplace": true,
@@ -506,7 +501,9 @@
     "ruby-lsp@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "promote-to-canon@engineering-tools": true
+    "promote-to-canon@engineering-tools": true,
+    "engineering-library@engineering-tools": true,
+    "vault-librarian@ai": true
   },
   "extraKnownMarketplaces": {
     "ai": {
@@ -546,6 +543,7 @@
     ]
   },
   "effortLevel": "high",
+  "tui": "fullscreen",
   "autoMemoryDirectory": "/Users/a.salvi/vaults/workspace/Memory/auto",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
@@ -553,6 +551,5 @@
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754059139990
-  },
-  "tui": "fullscreen"
+  }
 }
