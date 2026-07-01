@@ -59,7 +59,7 @@
       {
         "hooks": [
           {
-            "command": "~/.claude/hooks/notify.sh -s info -q",
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s info -q",
             "type": "command"
           }
         ],
@@ -184,7 +184,7 @@
       {
         "hooks": [
           {
-            "command": "~/.claude/hooks/notify.sh -s done -q",
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s done -q",
             "type": "command"
           }
         ],
