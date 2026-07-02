@@ -222,7 +222,7 @@ For complex work spanning multiple sessions:
 
 ## Response Style
 
-**Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
+**Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (e.g. ✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
 
 ## Vocabulary
 
