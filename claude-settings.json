@@ -99,6 +99,16 @@
           }
         ],
         "matcher": "mcp__fff__.*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/guard-memory-index-size.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
       }
     ],
     "PreToolUse": [
