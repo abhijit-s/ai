@@ -220,6 +220,10 @@ For complex work spanning multiple sessions:
 - **Trust-then-verify gap**: Run tests after changes, not just before committing.
 - **Wrong model tier**: Call out mismatches. Lookups on Opus = waste. Architecture on Sonnet = underpowered. ~95% of work runs fine on Sonnet; Opus is for genuinely hard problems (50× price spread).
 
+## Response Style
+
+**Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
+
 ## Vocabulary
 
 **Every response must expand acronyms at least once.** Use one of these two forms:
