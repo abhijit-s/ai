@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tomllib
 
 # Make the hooks/ package importable when this script runs from anywhere.
 HOOKS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +36,90 @@ from hooks.lib.tool_registry_client import (
     resolve_override,
     resolve_profile,
 )
+
+
+def _fff_config_path() -> str | None:
+    """Locate the fff-mcp roots config (config-not-fork: roots live here)."""
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    for name in ("config.toml", "mcp.toml"):
+        path = os.path.join(base, "fff", name)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def fff_root_hint(cwd: str) -> str | None:
+    """Map the session cwd to its most-specific fff root.
+
+    fff-mcp is a shared singleton with ONE global default root, so an agent
+    that omits `base_path` searches that default — the personal vault — not
+    its own working tree. This resolves the correct root from cwd and tells
+    the agent exactly what `base_path` to pass. Returns None when the default
+    already matches (nothing to warn about) or config/cwd are unavailable.
+    """
+    if not cwd:
+        return None
+    config_path = _fff_config_path()
+    if not config_path:
+        return None
+    try:
+        with open(config_path, "rb") as fh:
+            cfg = tomllib.load(fh)
+    except Exception:
+        return None
+
+    mcp = cfg.get("mcp") or {}
+    default_name = mcp.get("default")
+    roots = mcp.get("roots") or []
+    if not roots:
+        return None
+
+    try:
+        real_cwd = os.path.realpath(cwd)
+    except Exception:
+        real_cwd = cwd
+
+    # Longest matching root path wins (most specific — a nested corpus repo
+    # beats the umbrella root that also contains it).
+    match = None
+    for root in roots:
+        path = root.get("path")
+        name = root.get("name")
+        if not path or not name:
+            continue
+        real_path = os.path.realpath(os.path.expanduser(path))
+        if real_cwd == real_path or real_cwd.startswith(real_path + os.sep):
+            if match is None or len(real_path) > len(match[1]):
+                match = (name, real_path)
+
+    if match is None:
+        # cwd is outside every indexed root — fff would silently serve the
+        # default (personal vault). Steer to the lexical ladder instead.
+        return (
+            "⚠️ fff MCP has no root covering this working tree "
+            f"(`{real_cwd}`). An unqualified fff search would hit the default "
+            f"root (`{default_name}`, the personal vault), not your files — "
+            "either pass an explicit `base_path`, or drop to the lexical "
+            "ladder (ast-grep → rg → fd)."
+        )
+
+    matched_name, matched_path = match
+    if matched_name == default_name:
+        return None  # default already matches — omitting base_path is correct.
+
+    worktree_note = ""
+    if f"{os.sep}.claude{os.sep}worktrees{os.sep}" in real_cwd + os.sep:
+        worktree_note = (
+            f" (you're in a worktree — pass `base_path={real_cwd}` to search "
+            "the worktree copy directly)"
+        )
+
+    return (
+        f"⚠️ fff MCP default root is `{default_name}` (the personal vault) — "
+        "it will NOT match your working tree. This session's cwd maps to root "
+        f"`{matched_name}`. Pass `base_path={matched_path}` on every "
+        f"`mcp__fff__*` call{worktree_note}."
+    )
 
 
 def build_digest(allowed: set[str], manifest: dict, profile_label: str) -> str | None:
@@ -103,10 +188,26 @@ def main():
     ).strip()
     prompt = input_data.get("prompt") or tool_input.get("prompt") or ""
     session_id = input_data.get("session_id") or ""
+    cwd = input_data.get("cwd") or os.getcwd()
+
+    # The fff root hint is independent of the tool-registry manifest — it must
+    # still fire when the manifest cache is missing/stale.
+    hint = fff_root_hint(cwd)
 
     manifest = load_manifest()
     if not manifest.get("tools"):
-        # Cache missing or empty — soft-fail; downstream tools still work.
+        # Cache missing or empty — emit the root hint alone if we have one.
+        if hint:
+            print(
+                json.dumps(
+                    {
+                        "hookSpecificOutput": {
+                            "hookEventName": "SubagentStart",
+                            "additionalContext": hint,
+                        }
+                    }
+                )
+            )
         sys.exit(0)
 
     profiles_doc = load_profiles()
@@ -136,7 +237,8 @@ def main():
         profile_label = profile_name
 
     digest = build_digest(allowed, manifest, profile_label)
-    if not digest:
+    context = "\n\n".join(part for part in (hint, digest) if part)
+    if not context:
         sys.exit(0)
 
     print(
@@ -144,7 +246,7 @@ def main():
             {
                 "hookSpecificOutput": {
                     "hookEventName": "SubagentStart",
-                    "additionalContext": digest,
+                    "additionalContext": context,
                 }
             }
         )

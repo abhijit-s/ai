@@ -31,6 +31,8 @@ For session orientation and git state, also use fff MCP non-search tools:
 `list_recent_files` (session start — what's in flight), `get_git_status` (instead of `git status`),
 `list_directories` (active project areas), `record_access` (after every file read).
 
+**fff MCP roots — pass `base_path` or you search the wrong tree.** fff MCP is a shared singleton with ONE global default root: the *personal* vault (`abhi.easygo.io`). Every fff tool takes an optional `base_path`; omitting it searches that default, **not** your working tree — so a canon/engineering search silently returns nothing and you wrongly conclude "not found" or fall back to `rg`. Sub-agents get a `SubagentStart` hint resolving cwd → correct root with the exact `base_path`; the main thread gets no such hint, so resolve it yourself: pass the `base_path` of the root whose path contains your cwd, discoverable via `mcp__fff__list_roots`. Most-specific root wins — a nested corpus repo (`surge.easygo.io`, `surge.app`) beats the umbrella `surge.workspace`, whose `.gitignore` prunes those nested repos anyway. See [[fff-default-root-personal-vault]].
+
 > **Canonical preference data lives in the tool registry** — the table above is the human-facing summary; the live, profile-filtered, health-aware view is materialised at `~/.claude/cache/tool-registry-manifest.json` and surfaced to sub-agents via the `SubagentStart` digest hook. See `docs/tool-registry.md` for the full design, profile catalog, and how to add a new MCP server or tool category without touching registry code.
 
 ## Core Philosophy

@@ -26,6 +26,8 @@ Lexical ladder — follow this tool order and stop at the first tool that fits:
    - Listing/status tools: `select:mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status`
    - Load all at once: `select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep,mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status,mcp__fff__record_access`
 
+   ROOTS — fff MCP is a shared singleton with ONE global default root: the PERSONAL vault (`abhi.easygo.io`). Every fff tool takes an optional `base_path`; OMITTING it searches that default, NOT your working tree — so a canon/engineering search silently returns nothing and you wrongly fall back to rg. The SubagentStart digest resolves your cwd to the correct root and states the exact `base_path` to pass — follow it. If no hint is present, call `mcp__fff__list_roots` and pass the `base_path` (or `name`) of the root whose path contains your cwd. Most-specific root wins: a nested corpus repo (`surge.easygo.io`, `surge.app`) beats the umbrella `surge.workspace` that also contains it — and the umbrella's `.gitignore` prunes those nested repos, so umbrella-rooted searches skip them. Never treat an empty fff result as "not found" until you have confirmed you searched the right root.
+
 2. ast-grep — Syntax-aware structural code search when fff MCP is insufficient.
 3. rg (ripgrep) — Full-text search when fff MCP / ast-grep don't fit. Use full language names: `--type ruby` (not `--type rb`), `--type typescript`, etc.
 4. fd — File discovery by name/pattern. NEVER use `find` instead of `fd`.
