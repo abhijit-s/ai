@@ -110,7 +110,14 @@ git-status:
   category: [git-state]
   capability_tags: [git-state]
 
+mcp__turbo-rag__hybrid_search:
+  description: Conceptual search blending embeddings with lexical signal (default)
+  category: [semantic-search]
+  capability_tags: [semantic, hybrid, embedding-based, lexical-blend]
+  prefer_over:
+    semantic-search: [mcp__turbo-rag__semantic_search]
+
 mcp__turbo-rag__semantic_search:
-  description: Embedding-based semantic search across the indexed repo
+  description: Pure embedding-based semantic search (fallback when hybrid over-blends)
   category: [semantic-search]
   capability_tags: [semantic, embedding-based]

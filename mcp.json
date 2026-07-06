@@ -26,6 +26,20 @@
         "/Users/a.salvi/.dotfiles/ai/mcp-servers/tool-registry/index.js",
         "/Users/a.salvi/.dotfiles/ai/"
       ]
+    },
+    "turbo-rag": {
+      "type": "stdio",
+      "command": "/Users/a.salvi/my-workspace/ai/turbo-rag/.venv/bin/python",
+      "args": ["-m", "turbo_rag.mcp_client"],
+      "env": {
+        "TURBO_RAG_PROFILE_ROOT": "/Users/a.salvi/.cache/turbo-rag",
+        "TURBO_RAG_DB_PATH": "/Users/a.salvi/my-workspace/ai/turbo-rag/chunks.sqlite",
+        "TURBO_RAG_INDEX_PATH": "/Users/a.salvi/my-workspace/ai/turbo-rag/poc.tvim",
+        "PYTHONPATH": "/Users/a.salvi/my-workspace/ai/turbo-rag",
+        "EMBEDDER_BASE_URL": "http://127.0.0.1:28080/v1",
+        "EMBEDDER_BACKEND": "llamacpp",
+        "EMBEDDER_MODEL": "jina-embeddings-v2-code"
+      }
     }
   }
 }

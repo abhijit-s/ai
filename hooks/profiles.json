@@ -3,7 +3,7 @@
   "profiles": {
     "default": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
     },
     "session-default": {
       "tools": [],
@@ -18,15 +18,15 @@
     },
     "claude": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
     },
     "general-purpose": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir"]
+      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
     },
     "code-explorer": {
       "tools": [],
-      "categories": ["search-content", "find-files", "ast-search"]
+      "categories": ["search-content", "find-files", "ast-search", "semantic-search"]
     },
     "code-architect": {
       "tools": [],
@@ -58,7 +58,7 @@
     },
     "Explore": {
       "tools": [],
-      "categories": ["search-content", "find-files", "ast-search", "list-dir"]
+      "categories": ["search-content", "find-files", "ast-search", "list-dir", "semantic-search"]
     },
     "Plan": {
       "tools": [],
