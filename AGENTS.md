@@ -1,16 +1,29 @@
 This file provides guidance to AI coding agents when working with code across all projects.
 
-## Command Tool Order (read first — applies to every bash command)
+## Command Tool Order (read first — applies to every search)
 
-Before writing any bash command that searches files or text, work through this order and stop at the first tool that fits:
+Before choosing a tool, decide what *kind* of search this is:
 
-1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all search in any context; git repos additionally get frecency boosting for dirty files
+- **Lexical** — you know the identifier, symbol, literal string, or filename pattern. Follow the ladder below. This is the common case.
+- **Conceptual / semantic** — you're looking for *notes or prose about a topic* where the wording may differ from your query ("notes about auth step-up", "where did I reason about outbox ordering", "prior art on X"). Reach for **turbo-rag** first — lexical grep will miss it whenever the file phrases the idea in different words than your query.
+
+### Conceptual searches → turbo-rag (Retrieval-Augmented Generation index)
+
+1. **`mcp__turbo-rag__hybrid_search`** — DEFAULT conceptual search; blends vector similarity with lexical signal. Use when unsure.
+2. **`mcp__turbo-rag__semantic_search`** — pure vector similarity; for a concept that shares no keywords with the target text.
+
+- **Scope**: only the indexed corpus roots (personal vault, umbrella workspace + `_Knowledge`, `abhi.easygo.io`, `surge.easygo.io`, and the `surge/app` + `surge/platform` local tiers). Outside those, turbo-rag returns `meta.unregistered_roots` — fall back to the lexical ladder, or price coverage with `estimate_corpus` and (after user approval) `register_corpus`.
+- **Fallback**: if a conceptual search returns weak or empty results, drop to the lexical ladder — vocabulary you *do* know may match a file directly.
+
+### Lexical searches → work through this order, stop at the first tool that fits
+
+1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all lexical search in any context; git repos additionally get frecency boosting for dirty files
 2. **ast-grep** — syntax-aware structural search when fff MCP is insufficient
 3. **`rg`** (ripgrep) — full-text search; use full language names (`--type ruby`, not `--type rb`)
 4. **`fd`** — file discovery by name/pattern
 5. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
 
-This order is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent. The CLAUDE.md wording and hook wording are intentionally identical so there is no ambiguity.
+The **lexical ladder** is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent; the CLAUDE.md wording and hook wording are intentionally identical there. That hook fires on bash only — the conceptual/turbo-rag branch above is MCP-level and is not gated by it.
 
 **Never reach for `grep` or `find` by default.** They are familiar but slower, `.gitignore`-unaware, and lack the structured output of modern alternatives. If you find yourself typing `grep -r` or `find .`, stop and use `rg` or `fd` instead.
 

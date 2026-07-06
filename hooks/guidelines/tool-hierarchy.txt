@@ -1,6 +1,14 @@
-Follow this tool order and stop at the first tool that fits:
+First decide the KIND of search:
 
-1. fff MCP — FIRST CHOICE for all file search, listing, and git-status queries inside the git-indexed project.
+- Lexical (you know the identifier, symbol, string, or filename pattern) → follow the numbered ladder below. Common case.
+- Conceptual / semantic (finding notes or prose ABOUT a topic, where the wording may differ from your query) → reach for turbo-rag FIRST:
+    - `mcp__turbo-rag__hybrid_search` — DEFAULT; blends vector + lexical signal. Use when unsure.
+    - `mcp__turbo-rag__semantic_search` — pure vector similarity; when the query shares no keywords with the target text.
+  Scope: only indexed corpus roots — outside them turbo-rag returns `meta.unregistered_roots`; fall back to the lexical ladder. If a conceptual search returns weak/empty results, also drop to the ladder. Like fff MCP, turbo-rag tools are deferred — load with `select:mcp__turbo-rag__hybrid_search,mcp__turbo-rag__semantic_search` before calling.
+
+Lexical ladder — follow this tool order and stop at the first tool that fits:
+
+1. fff MCP — FIRST CHOICE for all lexical file search, listing, and git-status queries inside the git-indexed project.
    IMPORTANT: fff MCP tools are deferred — their schemas are not loaded by default. You MUST call ToolSearch with the relevant select query BEFORE calling any `mcp__fff__*` tool, or you will get an InputValidationError. Once loaded, USE THEM — do not load fff MCP and then fall back to grep/find anyway.
 
    | fff MCP tool                    | Use instead of                   | When to use                                              |
