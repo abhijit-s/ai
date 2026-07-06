@@ -27,6 +27,12 @@
         "/Users/a.salvi/.dotfiles/ai/"
       ]
     },
+    "fff": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/fff-mcp",
+      "args": [],
+      "env": {}
+    },
     "turbo-rag": {
       "type": "stdio",
       "command": "/Users/a.salvi/my-workspace/ai/turbo-rag/.venv/bin/python",
