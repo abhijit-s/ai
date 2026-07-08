@@ -6,3 +6,14 @@ Every response must expand acronyms at least once on first use. Use one of:
 
 This is a hard requirement. Do not assume the reader knows any acronym regardless of how common it seems.
 If a response uses no acronyms, this rule is satisfied automatically.
+
+The same hard requirement applies to OPAQUE IDENTIFIERS — in chat, vault notes, and source-repo
+artifacts (commits, PRs, docs, code comments) alike. Any short alphanumeric handle from a
+plan/brainstorm/decision artifact or project taxonomy is as uncorrelatable as an unexpanded acronym:
+the ce-plan/ce-brainstorm ID family — U<n> (implementation unit), F<n> (feature), R<n> (requirement),
+AE<n> (acceptance example), KTD<n> (key technical decision), KD<n> (key decision) — and project
+handles ADR-NNN, BC-N, SD-N (shared-domain card), CD-NN (code-design card), and the like.
+On first use in any document attach a slug or brief expansion in brackets — inline, e.g.
+"U4 (author base contracts)", "ADR-082 (domain event transport)"; or a small legend at the end when
+inline would clutter dense prose. Never the bare handle alone on first use; bare handles are fine in
+later uses within the same document. If a document uses none, this rule is satisfied automatically.
