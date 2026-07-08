@@ -13,6 +13,7 @@ Before choosing a tool, decide what *kind* of search this is:
 2. **`mcp__turbo-rag__semantic_search`** — pure vector similarity; for a concept that shares no keywords with the target text.
 
 - **Scope**: only the indexed corpus roots (personal vault, umbrella workspace + `_Knowledge`, `abhi.easygo.io`, `surge.easygo.io`, and the `surge/app` + `surge/platform` local tiers). Outside those, turbo-rag returns `meta.unregistered_roots` — fall back to the lexical ladder, or price coverage with `estimate_corpus` and (after user approval) `register_corpus`.
+- **Scoping** (`roots`): both search RPCs take an optional `roots` to narrow the corpus. Omit it and search cwd-scopes by default (`"auto"` — the registered root your cwd sits under, else the whole corpus). Pass `"all"` for the whole corpus, an absolute path, a registered `@name`, or a list mixing these (union of scopes; an unresolvable element is advisory, not an error). Registered handles: `@abhi-io`, `@workspace`, `@knowledge`, `@abhi`, `@surge`, `@surge-app`, `@surge-platform` — e.g. `hybrid_search(q, roots="@surge")` scopes to Surge canon; `roots=["@surge", "@surge-app"]` to both.
 - **Fallback**: if a conceptual search returns weak or empty results, drop to the lexical ladder — vocabulary you *do* know may match a file directly.
 
 ### Lexical searches → work through this order, stop at the first tool that fits
