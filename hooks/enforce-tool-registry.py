@@ -48,6 +48,29 @@ BASH_VERB_PATTERNS = [
     ("ast-grep", re.compile(r"(^|[|;&(\s]+)ast-grep(\s|$)")),
 ]
 
+# Single pipe `|`, not part of `||` (logical-or). Splits a shell command into
+# pipeline segments so we can tell a stdin-consuming grep from a file search.
+PIPE_SPLIT = re.compile(r"(?<!\|)\|(?!\|)")
+
+# grep/find are the documented LAST-RESORT tier. Used as a file search (not a
+# stream filter) they are DENIED — a real block, since auto mode auto-approves
+# `ask` for safe reads. The genuine escape hatch (outside indexed roots, find
+# -exec) stays open via the FFF_ESCAPE marker appended to the command.
+FFF_ESCAPE = "fff-ok"
+GREP_FIND_DENY = {
+    "grep": (
+        "Shell grep is the LAST-RESORT tier for file search. Re-issue with "
+        "mcp__fff__grep (indexed roots) or rg — rg searches ANY path, including "
+        "outside indexed roots, so it covers virtually every case. Only for a real "
+        f"grep-specific need append ' # {FFF_ESCAPE}' to force this call through."
+    ),
+    "find": (
+        "Shell find is the LAST-RESORT tier for file discovery. Re-issue with "
+        "mcp__fff__find_files (indexed roots) or fd — fd searches ANY path. Only for "
+        f"a real find-specific need (-exec, complex predicates) append ' # {FFF_ESCAPE}'."
+    ),
+}
+
 # Embedded fallback when the registry is unavailable. Intentionally minimal
 # (per KTD5) — the canonical chains live in the registry.
 EMBEDDED_FALLBACK = {
@@ -71,6 +94,25 @@ def detect_bash_verb(command: str) -> str | None:
     return None
 
 
+def is_stream_filter(command: str, verb: str) -> bool:
+    """True if grep/find consumes piped stdin (a legit filter fff/rg can't replace).
+
+    `ps aux | grep foo` and `git log | grep fix` filter another command's
+    output — untouchable. A recursive grep (`-r`/`-R`) is always a file search.
+    A verb that heads the pipeline (first segment) is a file search; one that
+    appears only downstream of a single `|` is a stream filter.
+    """
+    verb_pat = dict(BASH_VERB_PATTERNS)[verb]
+    if verb == "grep" and re.search(r"(^|\s)-[a-zA-Z]*[rR]\b|--recursive\b", command):
+        return False
+    segments = PIPE_SPLIT.split(command)
+    if len(segments) <= 1:
+        return False  # no pipe → cannot be a downstream filter
+    if verb_pat.search(segments[0]):
+        return False  # heads the pipeline → file search
+    return any(verb_pat.search(seg) for seg in segments[1:])
+
+
 def resolve_active_profile_name(hook_input: dict, profiles_doc: dict) -> str:
     tool_input = hook_input.get("tool_input") or {}
     subagent = tool_input.get("subagent_type")
@@ -85,14 +127,15 @@ def resolve_active_profile_name(hook_input: dict, profiles_doc: dict) -> str:
 def emit(reminder: str | None, decision: str = "allow"):
     if reminder is None:
         sys.exit(0)
-    payload = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": decision,
-            "additionalContext": reminder,
-        }
+    hook_output = {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": decision,
+        "additionalContext": reminder,
     }
-    print(json.dumps(payload))
+    # deny/ask surface their rationale to the user via permissionDecisionReason.
+    if decision != "allow":
+        hook_output["permissionDecisionReason"] = reminder
+    print(json.dumps({"hookSpecificOutput": hook_output}))
     sys.exit(0)
 
 
@@ -139,6 +182,13 @@ def main():
         verb = detect_bash_verb(command)
         if not verb:
             sys.exit(0)
+        # Deny the substitutable form of the last-resort tools. A piped
+        # grep/find is a stream filter fff/rg can't replace — leave it untouched.
+        # An explicit FFF_ESCAPE marker forces a genuine last-resort call through.
+        if verb in GREP_FIND_DENY:
+            if is_stream_filter(command, verb) or FFF_ESCAPE in command:
+                sys.exit(0)
+            emit(f"TOOL GUIDELINE (last-resort): {GREP_FIND_DENY[verb]}", decision="deny")
         manifest_name = verb
         fallback_key = verb
     elif tool_name.startswith("mcp__"):
