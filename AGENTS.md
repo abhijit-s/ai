@@ -18,9 +18,9 @@ Before choosing a tool, decide what *kind* of search this is:
 
 ### Lexical searches → work through this order, stop at the first tool that fits
 
-1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for all lexical search in any context; git repos additionally get frecency boosting for dirty files
-2. **ast-grep** — syntax-aware structural search when fff MCP is insufficient
-3. **`rg`** (ripgrep) — full-text search; use full language names (`--type ruby`, not `--type rb`)
+1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for **multi-file / corpus-wide searches**; git repos additionally get frecency boosting for dirty files and structured JSON output
+2. **`rg`** (ripgrep) — for **direct single-file searches** (faster, no permission overhead). Use full language names (`--type ruby`, not `--type rb`)
+3. **ast-grep** — syntax-aware structural search when pattern matching needs semantic awareness
 4. **`fd`** — file discovery by name/pattern
 5. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
 
