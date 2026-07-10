@@ -109,6 +109,16 @@
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/handle-expansion-postwrite.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -199,6 +209,16 @@
           }
         ],
         "matcher": ""
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -233,6 +253,18 @@
           {
             "type": "command",
             "command": "~/.dotfiles/ai/hooks/herdr-agent-name.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
+            "timeout": 10
           }
         ]
       }
