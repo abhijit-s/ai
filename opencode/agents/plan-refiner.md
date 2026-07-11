@@ -1,6 +1,7 @@
 ---
 description: "Evaluates plans for elegant, maintainable implementations. Suggests alternatives only with high confidence."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: allow

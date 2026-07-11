@@ -1,6 +1,7 @@
 ---
 description: "Evaluates codebases for brittleness, complexity, and coupling. Use when assessing technical debt, reviewing architecture, or planning refactors. Covers dependency analysis and structural issues."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: deny

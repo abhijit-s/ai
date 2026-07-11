@@ -1,6 +1,7 @@
 ---
 description: "Designs feature architectures by analyzing codebase patterns. Use when planning new features or major changes. Covers implementation blueprints, component designs, data flows, and build sequences."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: deny

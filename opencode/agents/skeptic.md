@@ -1,6 +1,7 @@
 ---
 description: "Adversarial reviewer for investigative conclusions. Spawned after research/analysis to challenge assumptions, identify gaps, and stress-test reasoning before conclusions reach the user."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: deny

@@ -52,12 +52,19 @@ MANAGED_PERMISSION_KEYS: list[str] = [
     "webfetch", "websearch", "list", "todowrite", "question", "task",
 ]
 
-# Claude short model alias -> OpenCode "provider/model" ref. EMPTY by default:
-# this machine's OpenCode routes through a LiteLLM provider with no `anthropic`
-# provider, so emitting `anthropic/...` would break agent loading. Unmapped
-# models are dropped, and the agent inherits OpenCode's default model. To pin a
-# tier, add e.g. {"opus": "litellm/opus"} once a LiteLLM alias exists.
-MODEL_MAP: dict[str, str] = {}
+# Claude short model alias -> OpenCode "provider/model" ref. We target
+# `litellm/default`, which is machine-aware by design: litellm's per-machine
+# default_fallbacks routes it to Claude (via OpenRouter) on the work machine and
+# to local llama-swap on the home machine. So one generated agent file gives
+# Claude where it's available and free local models elsewhere -- no per-machine
+# agent variants. To pin the explicit model instead, use
+# "litellm/openrouter/anthropic/claude-sonnet-4.6" (work-only). Unmapped aliases
+# are dropped and the agent inherits OpenCode's default model.
+MODEL_MAP: dict[str, str] = {
+    "opus": "litellm/default",
+    "sonnet": "litellm/default",
+    "haiku": "litellm/default",
+}
 
 # Every agent in agents/ is a Task-spawned helper, not a primary driver.
 DEFAULT_MODE = "subagent"

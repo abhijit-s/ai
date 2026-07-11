@@ -1,6 +1,7 @@
 ---
 description: "Reviews code for bugs, logic errors, security vulnerabilities, and convention adherence. Use when reviewing diffs, checking PRs, or validating changes. Covers confidence-based filtering and severity assessment."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: deny

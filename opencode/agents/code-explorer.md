@@ -1,6 +1,7 @@
 ---
 description: "Traces execution paths, maps architecture layers, and documents dependencies. Use when understanding unfamiliar code, tracing features, or mapping data flow. Covers call chains, abstractions, and component relationships."
 mode: subagent
+model: litellm/default
 permission:
   read: allow
   edit: deny
