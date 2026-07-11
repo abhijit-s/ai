@@ -11,12 +11,24 @@
 // like SubagentStart have no analog. The bridge fails OPEN on any error so a
 // misbehaving hook can never wedge OpenCode.
 
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const CONFIG_PATH =
   process.env.CLAUDE_HOOKS_BRIDGE_CONFIG ||
   `${homedir()}/.dotfiles/ai/opencode/hooks-bridge.json`;
+
+// Opt-in tracing: set CLAUDE_HOOKS_BRIDGE_DEBUG=1 to prove the plugin loaded and
+// which events fired. Writes to ~/.cache/claude-hooks-bridge.log; no-op otherwise.
+const TRACE_PATH = `${homedir()}/.cache/claude-hooks-bridge.log`;
+function trace(msg) {
+  if (!process.env.CLAUDE_HOOKS_BRIDGE_DEBUG) return;
+  try {
+    appendFileSync(TRACE_PATH, `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    // tracing must never affect the bridge
+  }
+}
 
 // Read once at load; restart OpenCode to pick up config changes.
 let CONFIG = { toolNameMap: {} };
@@ -83,9 +95,12 @@ async function runAll(entries, toolName, payloadFor, { blocking } = {}) {
   }
 }
 
-export const ClaudeHooksBridge = async ({ directory }) => ({
+export const ClaudeHooksBridge = async ({ directory }) => {
+  trace(`plugin loaded (cwd=${directory}, config=${CONFIG_PATH})`);
+  return {
   "tool.execute.before": async (input, output) => {
     const tool = toClaudeTool(input.tool);
+    trace(`tool.execute.before ${input.tool}->${tool}`);
     await runAll(CONFIG.PreToolUse, tool, () => ({
       hook_event_name: "PreToolUse",
       tool_name: tool,
@@ -114,10 +129,12 @@ export const ClaudeHooksBridge = async ({ directory }) => ({
       "session.compacted": "PostCompact",
     }[event?.type];
     if (!claudeEvent) return;
+    trace(`event ${event.type}->${claudeEvent}`);
     await runAll(CONFIG[claudeEvent], undefined, () => ({
       hook_event_name: claudeEvent,
       cwd: directory,
       session_id: event?.properties?.sessionID,
     }));
   },
-});
+  };
+};
