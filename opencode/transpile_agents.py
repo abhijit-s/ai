@@ -116,26 +116,49 @@ def render(fm: dict[str, str], body: str) -> str:
     return "\n".join(out) + "\n" + body
 
 
-def main() -> int:
-    ai_dir = Path(__file__).resolve().parent.parent
-    src_dir = ai_dir / "agents"
-    dst_dir = ai_dir / "opencode" / "agents"
-    dst_dir.mkdir(parents=True, exist_ok=True)
-
-    sources = sorted(src_dir.glob("*.md"))
-    if not sources:
-        print(f"no agents found in {src_dir}", file=sys.stderr)
-        return 1
-
-    for src in sources:
+def transpile_all(src_dir: Path) -> list[tuple[str, str]]:
+    """Return (filename, rendered opencode markdown) for every source agent."""
+    out: list[tuple[str, str]] = []
+    for src in sorted(src_dir.glob("*.md")):
         fm, body = split_frontmatter(src.read_text())
         if fm is None:
             print(f"  ! {src.name}: no frontmatter, skipped", file=sys.stderr)
             continue
-        (dst_dir / src.name).write_text(render(fm, body))
-        print(f"  agents/{src.name} -> opencode/agents/{src.name}")
+        out.append((src.name, render(fm, body)))
+    return out
 
-    print(f"transpiled {len(sources)} agent(s) -> {dst_dir}")
+
+def main() -> int:
+    check = "--check" in sys.argv[1:]
+    ai_dir = Path(__file__).resolve().parent.parent
+    src_dir = ai_dir / "agents"
+    dst_dir = ai_dir / "opencode" / "agents"
+
+    rendered = transpile_all(src_dir)
+    if not rendered:
+        print(f"no agents found in {src_dir}", file=sys.stderr)
+        return 1
+
+    if check:
+        drifted = [
+            name for name, text in rendered
+            if not (dst_dir / name).exists()
+            or (dst_dir / name).read_text() != text
+        ]
+        for name in drifted:
+            print(f"  DRIFT: opencode/agents/{name} is stale", file=sys.stderr)
+        if drifted:
+            print(f"{len(drifted)} agent(s) drifted -- run `make opencode-agents`",
+                  file=sys.stderr)
+            return 1
+        print(f"in sync: {len(rendered)} agent(s) match source")
+        return 0
+
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for name, text in rendered:
+        (dst_dir / name).write_text(text)
+        print(f"  agents/{name} -> opencode/agents/{name}")
+    print(f"transpiled {len(rendered)} agent(s) -> {dst_dir}")
     return 0
 
 

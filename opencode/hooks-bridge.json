@@ -1,0 +1,31 @@
+{
+  "_comment": "Config for the OpenCode->Claude hooks bridge (plugins/claude-hooks-bridge.js). The plugin is the generic engine; this file declares WHICH Claude hook scripts run on which bridged event. Start conservative: only hooks that are harness-agnostic and map cleanly are wired. Claude-mechanism-specific hooks (SubagentStart injection, tool-registry enforcement keyed on Claude tool names, stdout context-injection on SessionStart) are intentionally omitted -- they have no faithful OpenCode analog.",
+
+  "toolNameMap": {
+    "bash": "Bash",
+    "read": "Read",
+    "write": "Write",
+    "edit": "Edit",
+    "grep": "Grep",
+    "glob": "Glob",
+    "list": "LS",
+    "webfetch": "WebFetch",
+    "websearch": "WebSearch",
+    "task": "Task",
+    "todowrite": "TodoWrite"
+  },
+
+  "PreToolUse": [
+    { "matcher": "Bash", "command": "~/.claude/hooks/guard-broad-git.sh" }
+  ],
+
+  "PostToolUse": [],
+
+  "Stop": [
+    { "matcher": "*", "command": "~/.claude/hooks/notify.sh -s done -q" }
+  ],
+
+  "SessionStart": [],
+
+  "PostCompact": []
+}
