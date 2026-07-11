@@ -26,8 +26,11 @@ opencode: opencode-agents opencode-mcp opencode-link ## Transpile agents + MCP a
 opencode-agents: ## Transpile agents/*.md -> opencode/agents/*.md
 	@$(PY) $(AI_DIR)opencode/transpile_agents.py
 
-opencode-mcp: ## Merge mcp.json into ~/.config/opencode/opencode.json
-	@$(PY) $(AI_DIR)opencode/transpile_mcp.py
+opencode-mcp: ## Merge mcp.json into the chezmoi-managed opencode.json (run on work; commit via chezmoi)
+	@src="$$(chezmoi source-path "$(HOME)/.dotfiles/config/opencode/opencode.json")"; \
+	 OPENCODE_CONFIG="$$src" $(PY) $(AI_DIR)opencode/transpile_mcp.py; \
+	 chezmoi apply "$(HOME)/.dotfiles/config/opencode/opencode.json"; \
+	 echo "note: opencode.json is chezmoi-managed -- commit the source change"
 
 opencode-link: ## Point ~/.config/opencode/agents at the generated dir
 	@if [ -d "$(OC_AGENTS)" ] && [ ! -L "$(OC_AGENTS)" ]; then \

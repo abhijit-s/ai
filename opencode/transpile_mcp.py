@@ -3,9 +3,16 @@
 
 Claude/Codex use ``{"mcpServers": {name: {command, args, env}}}``. OpenCode uses
 ``{"mcp": {name: {type: "local"|"remote", command: [...], ...}}}``. This merges
-the transpiled servers into ``~/.config/opencode/opencode.json`` as a UNION with
-whatever is already there (e.g. the pencil MCP), so nothing hand-added is lost.
-Idempotent: re-running only updates the servers sourced from mcp.json.
+the transpiled servers into the target config as a UNION with whatever is already
+there (providers, the pencil MCP), so nothing hand-added is lost. Idempotent:
+re-running only updates the servers sourced from mcp.json.
+
+Target: set ``OPENCODE_CONFIG`` to the file to merge into. opencode.json is now
+chezmoi-managed, so ``make opencode-mcp`` points this at the chezmoi SOURCE (not
+the symlinked target, which would drift) and then runs ``chezmoi apply``. Because
+commands are resolved to absolute paths per machine, run it on the work machine
+(the canonical superset of installed tools) and commit the source via chezmoi.
+Absent tools on another machine simply surface as non-fatal failed MCP entries.
 """
 
 from __future__ import annotations
