@@ -40,6 +40,17 @@ try {
 
 const toClaudeTool = (tool) => CONFIG.toolNameMap?.[tool] ?? tool;
 
+// OpenCode emits session.idle twice per turn (~ms apart), which would fire Stop
+// hooks twice. Collapse repeats of the same session event within this window.
+const EVENT_DEBOUNCE_MS = 2000;
+const lastEventAt = new Map();
+function recentlyFired(key) {
+  const now = Date.now();
+  if (now - (lastEventAt.get(key) ?? 0) < EVENT_DEBOUNCE_MS) return true;
+  lastEventAt.set(key, now);
+  return false;
+}
+
 const matches = (matcher, name) => {
   if (!matcher || matcher === "*") return true;
   try {
@@ -129,6 +140,10 @@ export const ClaudeHooksBridge = async ({ directory }) => {
       "session.compacted": "PostCompact",
     }[event?.type];
     if (!claudeEvent) return;
+    if (recentlyFired(`${event.type}:${event?.properties?.sessionID ?? ""}`)) {
+      trace(`event ${event.type} deduped`);
+      return;
+    }
     trace(`event ${event.type}->${claudeEvent}`);
     await runAll(CONFIG[claudeEvent], undefined, () => ({
       hook_event_name: claudeEvent,
