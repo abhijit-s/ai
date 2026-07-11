@@ -18,31 +18,33 @@ import handle_lint  # noqa: E402
 
 
 def turn_prose(transcript_path):
-    """Concatenate the current turn's assistant text — every text block emitted
-    after the last genuine user prompt (tool-result 'user' entries don't count)."""
+    """Return only the delivered answer — the trailing run of text-only assistant
+    messages at the end of the transcript.
+
+    A multi-tool turn is physically several assistant messages: throwaway tool
+    preambles ("Let me check BC-2…") followed by the real answer in the final
+    block. Concatenating everything since the last user prompt wrongly counts a
+    preamble's bare handle as first-use, and can also scan a stale prefix before
+    the final glossary block has flushed to disk. Scanning only the trailing
+    answer segment matches the rule's intent (the answer is the "document") and
+    is immune to both failure modes."""
     try:
         lines = [json.loads(x) for x in open(transcript_path) if x.strip()]
     except (OSError, ValueError):
         return ""
 
-    def is_user_prompt(e):
-        if e.get("type") != "user":
-            return False
-        c = e.get("message", {}).get("content")
-        if isinstance(c, str):
-            return True
-        if isinstance(c, list):
-            return not any(isinstance(b, dict) and b.get("type") == "tool_result" for b in c)
-        return False
-
-    last_user = max((i for i, e in enumerate(lines) if is_user_prompt(e)), default=-1)
     chunks = []
-    for e in lines[last_user + 1:]:
+    for e in reversed(lines):
+        if e.get("type") == "user":
+            break
         if e.get("type") == "assistant":
-            for b in e.get("message", {}).get("content", []):
+            content = e.get("message", {}).get("content", [])
+            if any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content):
+                break  # a tool-calling message is preamble narration, not the answer
+            for b in content:
                 if isinstance(b, dict) and b.get("type") == "text":
                     chunks.append(b.get("text", ""))
-    return "\n".join(chunks)
+    return "\n".join(reversed(chunks))
 
 
 def main():
