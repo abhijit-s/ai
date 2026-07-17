@@ -1,0 +1,18 @@
+{
+  "general-purpose": {
+    "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.",
+    "tools": null
+  },
+  "claude": {
+    "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed.",
+    "tools": null
+  },
+  "claude-code-guide": {
+    "description": "Answers questions about Claude Code, the Claude Agent SDK, the Claude API, and Claude Tag (Claude in Slack).",
+    "tools": "Bash, Read, WebFetch, WebSearch"
+  },
+  "statusline-setup": {
+    "description": "Configures the user's Claude Code status line setting.",
+    "tools": "Read, Edit"
+  }
+}

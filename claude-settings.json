@@ -431,6 +431,11 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/inject-tool-digest.py",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/inject-agent-registry.py",
+            "timeout": 5
           }
         ]
       }
