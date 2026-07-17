@@ -1,0 +1,10 @@
+- When creating a git worktree manually, always put it at `<repo>/worktrees/<slug>` — never a sibling directory next to the repo (e.g. `<repo>-wt-<slug>` or `/tmp/wt-N`).
+- `worktrees/` is ignored globally (~/.gitignore_global) — no per-repo .gitignore edit needed.
+- Clean up with `git worktree remove <repo>/worktrees/<slug>` once the branch is merged/abandoned.
+- This convention is recorded in the workspace umbrella's `repos.yaml` (worktree_convention block) and `repos.local.yaml` (machine-local repo registry) — read those for the authoritative repo list and paths.
+- Agent-tool isolation:"worktree" already follows its own fixed convention (`<repo>/.claude/worktrees/agent-*`) — do not redirect it, just leave it as-is.
+
+Examples:
+  Wrong: git worktree add -b feat/x ../app-wt-feat-x main
+  Wrong: git worktree add -b feat/x /tmp/wt-1 main
+  Right: git worktree add -b feat/x app/worktrees/feat-x main

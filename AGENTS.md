@@ -127,6 +127,15 @@ See **Command Tool Order** at the top of this file.
 
 For complex multi-file discovery, spawn a sub-agent rather than writing shell loops.
 
+### Git Worktree Hosting
+
+**Every worktree gets one home: `<repo>/worktrees/<slug>`.** Never a sibling directory next to the repo (`<repo>-wt-<slug>`, `/tmp/wt-N`, etc.) — those scatter across parent directories and are easy to lose track of.
+
+- `worktrees/` is ignored globally (`~/.gitignore_global`) — no per-repo `.gitignore` edit needed.
+- Claude Code's own `isolation:"worktree"` agents already follow their own fixed convention (`<repo>/.claude/worktrees/agent-*`, also globally ignored) — leave that mechanism alone, it isn't configurable.
+- Clean up with `git worktree remove <repo>/worktrees/<slug>` once the branch is merged or abandoned.
+- Project-specific repo lists and this convention's authoritative record live in each project's `repos.yaml` (and a machine-local `repos.local.yaml` companion, gitignored, for repos outside the tracked tree) where present.
+
 ### Modern CLI Tools
 
 - **fff MCP** (stdio MCP server): search tools covered by Command Tool Order above. Also for session orientation:

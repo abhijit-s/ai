@@ -15,6 +15,11 @@
       "category": "tooling",
       "order": 2
     },
+    "worktree-hygiene": {
+      "title": "Git Worktree Hosting Convention",
+      "category": "tooling",
+      "order": 3
+    },
     "vocab-acronyms": {
       "title": "Vocabulary \u2014 Acronym Expansion",
       "category": "vocabulary",
@@ -35,6 +40,7 @@
     "default": [
       "tool-hierarchy",
       "bash-commands",
+      "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
       "lifecycle-routing"
@@ -42,6 +48,7 @@
     "claude": [
       "tool-hierarchy",
       "bash-commands",
+      "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
       "lifecycle-routing"
@@ -49,13 +56,15 @@
     "general-purpose": [
       "tool-hierarchy",
       "bash-commands",
+      "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
       "lifecycle-routing"
     ],
     "Explore": [
       "tool-hierarchy",
-      "bash-commands"
+      "bash-commands",
+      "worktree-hygiene"
     ],
     "Plan": [
       "tool-hierarchy",
@@ -64,6 +73,7 @@
     "code-explorer": [
       "tool-hierarchy",
       "bash-commands",
+      "worktree-hygiene",
       "vocab-acronyms"
     ],
     "code-architect": [
