@@ -197,6 +197,12 @@ Avoid temporal references: "vs previous", "used to be X", "now uses Y", "the new
 
 This applies across all domains — not just software. Explaining a business process, a recipe workflow, a financial structure, or a decision framework? If a diagram makes it clearer, draw it.
 
+### Mermaid syntax rules
+
+- **Never use a semicolon (`;`) inside a node or edge label — use `|` instead.** A `;` is parsed as a statement separator, not label text: Mermaid ends the statement at the `;` and tries (and fails) to parse the remainder, throwing a parse error on that line.
+- **Use `<br>` for line breaks inside labels — never a literal `\n`.** Mermaid labels are single logical lines; a literal newline breaks the statement rather than wrapping text.
+- **Exception — diagrams written into the Obsidian vault:** do NOT use `<br/>`, HTML entities, or list-marker-leading text in labels there. Obsidian renders Mermaid with `htmlLabels:false`, which parses labels as markdown (via micromark) and throws "Unsupported markdown" on any HTML tag. Use `" — "` or parentheses as the line/clause separator instead. See the `mermaid-obsidian-plain-labels` memory for the full writeup.
+
 **Bias toward the big picture first.** Lead with the high-level view, then add detail diagrams only where the depth genuinely helps.
 
 ## Development Workflow

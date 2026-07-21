@@ -473,8 +473,8 @@
     ]
   },
   "statusLine": {
-    "type": "command",
-    "command": "~/.dotfiles/ai/statusline.sh"
+    "command": "~/.dotfiles/ai/statusline.sh",
+    "type": "command"
   },
   "enabledPlugins": {
     "compound-engineering@compound-engineering-plugin": true,
