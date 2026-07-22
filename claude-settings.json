@@ -352,6 +352,11 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/pretool-stash-override.py",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/nudge-agent-tier.py",
+            "timeout": 5
           }
         ]
       },

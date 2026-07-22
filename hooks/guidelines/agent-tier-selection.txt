@@ -1,0 +1,10 @@
+Route substantive background work — implementation builds, money-path or
+high-stakes code review, hard multi-step reasoning — to the `most-capable-agent`
+(or `most-capable-and-lean-agent`) subagent type. Reserve `general-purpose`/
+`Explore` for cheap mechanical discovery: file/keyword search, listing, orientation.
+
+This applies to YOUR OWN sub-agent dispatches too. If you spawn further
+sub-agents — via the `Agent` tool or a `Workflow` script's `agent()` calls —
+apply the same tier rule to them. Do not default nested dispatches to
+`general-purpose` just because it's the tool's default; depth does not
+downgrade the bar.

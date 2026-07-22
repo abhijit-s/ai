@@ -58,6 +58,24 @@ Sub-agents consume their own context (not yours), can run simultaneously, and st
 - Launch multiple agents in a single message when tasks are independent
 - Use `run_in_background: true` for tasks that don't block your main work
 
+### Agent Tier Selection
+
+**Substantive background work goes to `most-capable-agent` (or
+`most-capable-and-lean-agent`), never `general-purpose`.** "Substantive" means
+implementation builds, money-path or high-stakes code review, and hard
+multi-step reasoning. Reserve `general-purpose`/`Explore` for cheap mechanical
+discovery — file/keyword search, listing, orientation.
+
+This rule is **recursive**: if a sub-agent (including `most-capable-agent`
+itself) spawns further sub-agents of its own — via the `Agent` tool or a
+`Workflow` script's `agent()` calls — it must apply the same tier rule to
+those nested dispatches. Depth does not downgrade the bar.
+
+Enforcement: a `PreToolUse` hook nudges (non-blocking) whenever an `Agent`
+call resolves to `general-purpose`, and the `agent-tier-selection` guideline
+slug (see below) is injected into every sub-agent's `SubagentStart` context
+so the rule travels with nested spawns that this file itself never reaches.
+
 ### Sub-Agent Guideline Injection
 
 A `SubagentStart` hook automatically injects guidelines into every sub-agent from a config-driven library at `~/.claude/hooks/guidelines.json`. Each agent type has a default profile (slug list); you can override it per spawn.

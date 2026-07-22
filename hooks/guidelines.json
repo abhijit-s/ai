@@ -1,10 +1,16 @@
 {
   "categories": [
     "tooling",
+    "delegation",
     "vocabulary",
     "routing"
   ],
   "slugs": {
+    "agent-tier-selection": {
+      "title": "Agent Tier Selection",
+      "category": "delegation",
+      "order": 1
+    },
     "tool-hierarchy": {
       "title": "Tool Hierarchy",
       "category": "tooling",
@@ -38,6 +44,7 @@
   },
   "profiles": {
     "default": [
+      "agent-tier-selection",
       "tool-hierarchy",
       "bash-commands",
       "worktree-hygiene",
@@ -46,6 +53,7 @@
       "lifecycle-routing"
     ],
     "claude": [
+      "agent-tier-selection",
       "tool-hierarchy",
       "bash-commands",
       "worktree-hygiene",
@@ -54,6 +62,7 @@
       "lifecycle-routing"
     ],
     "general-purpose": [
+      "agent-tier-selection",
       "tool-hierarchy",
       "bash-commands",
       "worktree-hygiene",
@@ -62,6 +71,7 @@
       "lifecycle-routing"
     ],
     "Explore": [
+      "agent-tier-selection",
       "tool-hierarchy",
       "bash-commands",
       "worktree-hygiene"
