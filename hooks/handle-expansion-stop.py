@@ -11,6 +11,7 @@ Reuses the shared detector in handle_lint.py.
 """
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -64,12 +65,15 @@ def main():
     if not findings:
         sys.exit(0)
 
-    # De-dup by handle, build a ready-to-paste glossary.
+    # De-dup by (family, num), not the literal handle string — self-defending
+    # against a detector that ever stops guaranteeing handle-string uniqueness
+    # (e.g. "CD-12" vs "CD12" would be the same key but different strings).
     seen, entries = set(), []
     for f in findings:
-        if f["handle"] in seen:
+        key = (f["family"], int(re.search(r"\d+", f["handle"]).group()))
+        if key in seen:
             continue
-        seen.add(f["handle"])
+        seen.add(key)
         if f["suggestion"]:
             entries.append(f"{f['handle']} ({f['suggestion']})")
         else:
@@ -77,7 +81,7 @@ def main():
 
     reason = (
         "Vocabulary rule: your response uses project taxonomy handles bare on first "
-        "use — " + ", ".join(sorted(seen)) + ". Append a one-line glossary at the end "
+        "use — " + ", ".join(sorted(e.split(" ")[0] for e in entries)) + ". Append a one-line glossary at the end "
         "(or expand each inline). Suggested glossary:\n\n"
         "*Glossary — " + "; ".join(entries) + ".*\n\n"
         "Fix plan-local handles from your own context; the parenthetical titles for "
