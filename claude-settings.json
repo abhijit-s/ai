@@ -388,6 +388,11 @@
             "type": "command",
             "command": "~/.claude/hooks/refresh-tool-registry.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/inject-vocab-sessionstart.py",
+            "timeout": 5
           }
         ]
       },
