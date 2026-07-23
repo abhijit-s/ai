@@ -11,8 +11,15 @@
 # affects the small per-agent status line (`<state> · <agent> ·
 # <custom-status>`), not the pane's actual name. Preference order for the
 # label:
-#   1. the session's customTitle — set explicitly via /resume's Ctrl+R rename
+#   1. the session's customTitle — set explicitly via /rename or /resume's
+#      Ctrl+R rename
 #   2. the session's auto-derived name from ~/.claude/sessions/<pid>.json
+#   3. the cwd basename, as a last resort
+# ~/.claude/sessions/<pid>.json is written once at process start and never
+# updated again, so #2 goes stale the moment you `/resume` a DIFFERENT,
+# never-renamed session in the same running process (same pid, new
+# session_id) — the file still lists the session that was active at boot.
+# #3 exists so that case still gets a real label instead of the stale one.
 # herdr's own manual pane-rename UI has no notion of "source", so this hook
 # will overwrite a manually-set pane label on the next turn.
 # Wired on UserPromptSubmit so it refreshes every turn.
@@ -47,7 +54,13 @@ except Exception:
 
 sid   = inp.get("session_id") or ""
 tpath = inp.get("transcript_path") or ""
+cwd   = inp.get("cwd") or ""
 limit = int(os.environ.get("HERDR_CTX_LIMIT") or "1000000")
+
+# Last-resort fallback: cwd basename, used only when neither an explicit
+# rename nor a live registry match resolves (see the stale-registry note
+# in the file header above).
+cwd_name = os.path.basename(cwd.rstrip("/")) if cwd else ""
 
 # Fallback name: Claude's per-session registry (auto-derived from cwd).
 derived_name = ""
@@ -94,7 +107,7 @@ def fmt(n):
         return f"{m:.0f}M" if m == int(m) else f"{m:.1f}M"
     return f"{round(n / 1000)}k"
 
-print(custom_title or derived_name)
+print(custom_title or derived_name or cwd_name)
 print(f"{fmt(used)}/{fmt(limit)}" if used else "")
 PY
 )"
