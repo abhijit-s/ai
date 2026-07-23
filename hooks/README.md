@@ -49,12 +49,3 @@ decisions, or no-op (silent exit).
 `enforce-tool-registry.py` are the three integration points for the
 materialised tool registry. See `docs/tool-registry.md` for the full design
 and triage flow.
-
-## Deprecated
-
-- `enforce-tool-guidelines.sh` — replaced by `enforce-tool-registry.py`.
-  Kept on disk through a probation window so the swap is trivially
-  reversible (revert the `claude-settings.json` change). To be removed
-  once at least one full session in advisory mode has produced a clean
-  `~/.claude/logs/search-tool-audit.jsonl`.
-- `inject-tool-guidelines.sh` — superseded by `inject-guidelines.py`.

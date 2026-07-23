@@ -30,6 +30,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from hooks.lib.tool_registry_client import (
+    is_under_code_repo_root,
+    load_code_repo_roots,
     load_manifest,
     load_profiles,
     resolve_profile,
@@ -189,6 +191,22 @@ def main():
             if is_stream_filter(command, verb) or FFF_ESCAPE in command:
                 sys.exit(0)
             emit(f"TOOL GUIDELINE (last-resort): {GREP_FIND_DENY[verb]}", decision="deny")
+        # Known code repos (per each project canon's own
+        # .knowledge/local/repos.local.yaml — see load_code_repo_roots):
+        # ast-grep is the more dependable structural-search tool here
+        # specifically because fff MCP's default root is the personal vault,
+        # not these repos — it needs an explicit base_path to cover them, so
+        # it can't be assumed to "just work" the way the generic category
+        # ordering implies.
+        if verb == "rg" and is_under_code_repo_root(input_data.get("cwd") or "", load_code_repo_roots()):
+            emit(
+                "TOOL GUIDELINE NUDGE (code-repo): You're in a known code repo "
+                "(per its project canon's repos.local.yaml). Prefer ast-grep over rg "
+                "here for anything structural (call sites, definitions, syntax-shaped "
+                "matches) — fff MCP's default root doesn't cover this path without an "
+                "explicit base_path, so it can't be assumed to just work. rg is still "
+                "fine for a literal/plain-text match."
+            )
         manifest_name = verb
         fallback_key = verb
     elif tool_name.startswith("mcp__"):

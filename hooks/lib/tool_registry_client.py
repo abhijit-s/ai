@@ -8,10 +8,21 @@ directly — no MCP round-trip — per KTD3.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
 from typing import Iterable
+
+# Lazy/optional: a missing PyYAML must degrade load_code_repo_roots() to an
+# empty list, never crash module import — every hook sharing this module
+# (manifest/profile reads included) would go down with it otherwise, which
+# would violate this file's own "nudge, never break the call" contract.
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 
 def _manifest_path() -> str:
     return os.path.join(os.path.expanduser("~"), ".claude", "cache", "tool-registry-manifest.json")
@@ -23,6 +34,22 @@ def _manifest_path() -> str:
 def _default_profiles_path() -> str:
     here = os.path.dirname(os.path.abspath(__file__))
     return os.path.abspath(os.path.join(here, "..", "profiles.json"))
+
+
+# Vault root under which every project canon's own code-repo registry lives
+# (each as <project>/.knowledge/local/repos.local.yaml — see
+# load_code_repo_roots). Override via CLAUDE_VAULT_ROOT for other machines.
+def _vault_root() -> str:
+    return os.path.expanduser(os.environ.get("CLAUDE_VAULT_ROOT") or "~/vaults/workspace")
+
+
+# Manual supplement for repos with no project-canon repos.local.yaml (e.g. a
+# scratch clone, a repo you haven't wired into a knowledge base yet). Empty
+# by default — knowledge-base discovery is the primary source; this file
+# only needs entries for what that discovery genuinely can't see.
+def _manual_code_repo_roots_path() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(here, "..", "tools", "code-repo-roots.json"))
 
 
 # Backwards-compatible module-level constants (evaluated at import time).
@@ -55,6 +82,77 @@ def load_profiles(path: str | None = None) -> dict:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, PermissionError, IsADirectoryError):
         return {"version": 1, "profiles": {}}
+
+
+def _discovered_code_repo_roots(vault_root: str | None) -> list[str]:
+    """Code-repo paths from every project canon's own repos.local.yaml.
+
+    Globbing under the vault root means a new project canon is picked up
+    with zero changes here — no per-project path needs adding anywhere.
+    Best-effort: a missing PyYAML, a missing vault root, an unparseable
+    YAML file, or a malformed `repos:` block is skipped rather than
+    raised, so neither a broken project canon nor a missing dependency
+    can take down the nudge for every other repo (or the hook call
+    itself).
+    """
+    if yaml is None:
+        return []
+    root = vault_root or _vault_root()
+    pattern = os.path.join(root, "**", ".knowledge", "local", "repos.local.yaml")
+    roots: list[str] = []
+    for overlay_path in glob.glob(pattern, recursive=True):
+        try:
+            with open(overlay_path) as f:
+                data = yaml.safe_load(f) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        for value in (data.get("repos") or {}).values():
+            if isinstance(value, str) and value:
+                roots.append(value)
+    return roots
+
+
+def _manual_code_repo_roots(path: str | None) -> list[str]:
+    """Code-repo paths from the manual supplement file, or [] if absent/invalid."""
+    p = path or _manual_code_repo_roots_path()
+    try:
+        with open(p) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError, IsADirectoryError):
+        return []
+    return [r for r in (data.get("roots") or []) if isinstance(r, str) and r]
+
+
+def _normalize_path(p: str) -> str:
+    return os.path.normpath(os.path.expanduser(os.path.expandvars(p))).rstrip("/") or "/"
+
+
+def load_code_repo_roots(vault_root: str | None = None, manual_path: str | None = None) -> list[str]:
+    """Return every code-repo path this machine knows about, deduped.
+
+    Hybrid source, in priority order (first-seen wins on duplicates):
+      1. Knowledge-base discovery — each project canon's own
+         `<project>/.knowledge/local/repos.local.yaml` (see
+         _discovered_code_repo_roots). Primary source; covers anything
+         already tracked by a knowledge base with zero config here.
+      2. Manual supplement — `hooks/tools/code-repo-roots.json`. For
+         repos with no knowledge-base canon at all (a scratch clone, a
+         repo not yet wired into any project canon).
+    """
+    raw = _discovered_code_repo_roots(vault_root) + _manual_code_repo_roots(manual_path)
+    seen: dict[str, str] = {}
+    for r in raw:
+        key = _normalize_path(r)
+        seen.setdefault(key, r)
+    return list(seen.values())
+
+
+def is_under_code_repo_root(cwd: str, roots: Iterable[str]) -> bool:
+    """True if cwd is at or under any configured code-repo root."""
+    if not cwd:
+        return False
+    cwd = _normalize_path(cwd)
+    return any(cwd == (r := _normalize_path(root)) or cwd.startswith(r + "/") for root in roots)
 
 
 def _empty_manifest() -> dict:
