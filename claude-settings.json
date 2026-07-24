@@ -250,7 +250,7 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "sonnet",
+  "model": "opus[1m]",
   "enableAllProjectMcpServers": true,
   "hooks": {
     "Notification": [
@@ -484,8 +484,8 @@
     ]
   },
   "statusLine": {
-    "command": "~/.dotfiles/ai/statusline.sh",
-    "type": "command"
+    "type": "command",
+    "command": "~/.dotfiles/ai/statusline.sh"
   },
   "enabledPlugins": {
     "compound-engineering@compound-engineering-plugin": true,
@@ -541,6 +541,7 @@
   },
   "effortLevel": "high",
   "tui": "fullscreen",
+  "showMessageTimestamps": true,
   "autoMemoryDirectory": "/Users/a.salvi/vaults/workspace/Memory/auto",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
