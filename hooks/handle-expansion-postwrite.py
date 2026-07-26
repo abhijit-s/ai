@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import handle_lint  # noqa: E402
 
-VAULT = "/Users/a.salvi/vaults/workspace"
+VAULT = os.path.expanduser("~/vaults/workspace")
 
 
 def main():

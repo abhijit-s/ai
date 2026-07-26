@@ -9,6 +9,15 @@ if [[ ! -f "$SOURCE_FILE" ]]; then
   exit 1
 fi
 
+# mcp.json stores ${HOME}-relative paths so a fresh checkout is portable across
+# users/machines. The downstream consumers (Claude Desktop config, `claude mcp
+# add-json`, `codex mcp add`) receive these values verbatim and do NOT expand
+# env vars, so expand ${HOME} here into a temp file and use that as the source.
+EXPANDED_FILE="$(mktemp)"
+trap 'rm -f "$EXPANDED_FILE"' EXIT
+jq '(.. | strings) |= gsub("\\$\\{HOME\\}"; env.HOME)' "$SOURCE_FILE" > "$EXPANDED_FILE"
+SOURCE_FILE="$EXPANDED_FILE"
+
 echo "Generating MCP configs from mcp.json..."
 
 # Determine Claude Desktop config location based on platform

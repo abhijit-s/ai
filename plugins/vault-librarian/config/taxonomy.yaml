@@ -7,7 +7,7 @@
 # preserve the human-readable directory names (with spaces and "&").
 
 vault:
-  root: "/Users/a.salvi/Data/Obsidian/Vault/obsidian-vault-abhi.io/KnowledgeBase"
+  root: "~/Data/Obsidian/Vault/obsidian-vault-abhi.io/KnowledgeBase"
   exclude_dirs:
     - zAttachments
     - .obsidian
