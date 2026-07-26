@@ -42,7 +42,7 @@ CONFIG = {
         r"(?im)^\s{0,3}[#>\-*_ ]{0,6}"
         r"(glossary|legend|acronyms?|abbreviations?|expansions?)\b"
     ),
-    "corpus": Path("/Users/a.salvi/vaults/workspace/surge.easygo.io/Projects/Surge"),
+    "corpus": Path.home() / "vaults/workspace/surge.easygo.io/Projects/Surge",
     "adr_index": "40_decisions/adr/ADR-000-index.md",
     "bc_card_dir": "30_architecture/reference/bounded-contexts",
     "cd_card_dir": "30_architecture/reference/code-design",

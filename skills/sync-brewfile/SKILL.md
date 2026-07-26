@@ -10,13 +10,13 @@ All logic lives in `packages/homebrew/scripts/sync_brewfile.py`. Run it from the
 directory containing the Brewfile (or pass the path explicitly):
 
 ```bash
-python3 /Users/a.salvi/.dotfiles/packages/homebrew/scripts/sync_brewfile.py [BREWFILE_PATH]
+python3 ~/.dotfiles/packages/homebrew/scripts/sync_brewfile.py [BREWFILE_PATH]
 ```
 
 Or use the shell wrapper directly:
 
 ```bash
-/Users/a.salvi/.dotfiles/packages/homebrew/scripts/sync_brewfile.sh [BREWFILE_PATH]
+~/.dotfiles/packages/homebrew/scripts/sync_brewfile.sh [BREWFILE_PATH]
 ```
 
 ## What the script does
