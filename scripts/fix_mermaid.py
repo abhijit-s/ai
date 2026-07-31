@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fix characters inside Mermaid blocks that break rendering.
 
-Inside ```mermaid ... ``` fences, this tool applies five fixes:
+Inside ```mermaid ... ``` fences, this tool applies four fixes:
 
 1. Escape bare `*` (path/cron wildcards, glob patterns) -> `#42;`
 2. Escape a `<number>. ` prefix at the start of a label fragment -> `<number>#46; `
@@ -9,15 +9,29 @@ Inside ```mermaid ... ``` fences, this tool applies five fixes:
    `<br>` (a literal backslash-n does not render as a line break)
 4. Replace a bare `;` inside connector text, a node label, or a note block ->
    ` |` (a semicolon there breaks Mermaid's parser)
-5. Escape bare `#` (Discord channels, hashtags) -> `#35;` (Obsidian Mermaid issue)
+
+Fix 1 earns its place because Mermaid runs label text through a markdown
+tokenizer and emits `<strong>`/`<em>` nodes, so two or more asterisks in one
+label pair into emphasis and the asterisks are silently eaten - exactly the
+multi-asterisk shape of a glob or cron label. A lone unpaired `*` is harmless.
+
+Fix 4 is the only fix backed by a genuine grammar-level parse error; the
+others defend against silent mangling.
+
+No `#` fix. A bare `#` in a label renders correctly (verified 2026-07-30 on
+Obsidian 1.13.4 / mermaid 11.13.0), so escaping it bought nothing - and an
+earlier `# -> #35;` rule destroyed diagram colouring across ~97 files by
+rewriting `fill:#bbf7d0` to `fill:#35;bbf7d0`. That damage could not be
+undone by re-running the script, because `#35;bbf7d0` then reads as a valid
+entity and is skipped; only a git-HEAD restore recovered it. Do not re-add it.
 
 Preserved, never touched:
 - `[*]` (state diagram start/end), `*--`/`--*`/`o--*` composition arrows,
   and `"0..*"`/`"1..*"` multiplicity (fix 1's existing exclusions)
 - `classDef`/`class`/`style`/`linkStyle` statement lines - their trailing
   `;` is a legitimate Mermaid statement terminator, not label text
-- a `;` or `#` that is part of an HTML numeric entity, e.g. the `#42;` fix 1
-  itself produces, or a pre-existing `#46;` / `#35;`
+- a `;` that is part of an HTML numeric entity, e.g. the `#42;` fix 1 itself
+  produces, or a pre-existing `#46;` / `#35;`
 - anything after `%%` on a line (Mermaid comment - inert, never parsed)
 
 Fix 3 and 4 track quote-open state *across* lines within a block (a
@@ -89,63 +103,6 @@ def escape_numdot_in_mermaid_line(line: str) -> str:
     line = NUMDOT_LINESTART_RE.sub(lambda m: f'{m.group(1)}{m.group(2)}#46; ', line)
     line = NUMDOT_RE.sub(lambda m: f'{m.group(1)}#46; ', line)
     return line
-
-
-# --- Fix 5: bare `#` -> `#35;` -----------------------------------------------
-
-
-def escape_hash_in_mermaid_line(line: str) -> str:
-    """Escape bare # to #35; except in hex colors, entities, and comments.
-
-    Handles Discord channels (#channel-name), hashtags, and other # usage.
-    Preserves # when it's part of:
-    - hex colors (#RGB, #RRGGBB)
-    - HTML entities (#42;)
-    - comments (%%...)
-    """
-    out = []
-    i = 0
-    n = len(line)
-
-    # Find comment position
-    comment_at = line.find('%%')
-
-    while i < n:
-        # Stop at comment; append remainder as-is
-        if comment_at != -1 and i >= comment_at:
-            out.append(line[i:])
-            break
-
-        ch = line[i]
-        if ch == '#':
-            j = i + 1
-            hex_digits = 0
-
-            # Check for hex color (#RGB or #RRGGBB) or entity (#123;)
-            while j < n and hex_digits < 6 and line[j] in '0123456789ABCDEFabcdef':
-                hex_digits += 1
-                j += 1
-
-            # If we found 3 or 6 hex digits (valid CSS color), preserve #
-            if hex_digits in (3, 6):
-                out.append(ch)
-                i += 1
-                continue
-
-            # If followed by digits and semicolon, it's an entity — preserve it
-            if hex_digits > 0 and j < n and line[j] == ';':
-                out.append(ch)
-                i += 1
-                continue
-
-            # Bare #, escape it
-            out.append('#35;')
-            i += 1
-        else:
-            out.append(ch)
-            i += 1
-
-    return ''.join(out)
 
 
 # --- Fix 3 + 4: literal `\n` -> `<br>`, bare `;` -> ` |` ------------------
@@ -262,7 +219,6 @@ def process_file(path: Path) -> bool:
             continue
         new_line = escape_in_mermaid_line(line)
         new_line = escape_numdot_in_mermaid_line(new_line)
-        new_line = escape_hash_in_mermaid_line(new_line)
         new_line = fix_breaks_and_semicolons_in_line(new_line, block_state)
         if new_line != line:
             changed = True

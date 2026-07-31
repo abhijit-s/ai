@@ -218,8 +218,8 @@ This applies across all domains — not just software. Explaining a business pro
 ### Mermaid syntax rules
 
 - **Never use a semicolon (`;`) inside a node or edge label — use `|` instead.** A `;` is parsed as a statement separator, not label text: Mermaid ends the statement at the `;` and tries (and fails) to parse the remainder, throwing a parse error on that line.
-- **Use `<br>` for line breaks inside labels — never a literal `\n`.** Mermaid labels are single logical lines; a literal newline breaks the statement rather than wrapping text.
-- **Exception — diagrams written into the Obsidian vault:** do NOT use `<br/>`, HTML entities, or list-marker-leading text in labels there. Obsidian renders Mermaid with `htmlLabels:false`, which parses labels as markdown (via micromark) and throws "Unsupported markdown" on any HTML tag. Use `" — "` or parentheses as the line/clause separator instead. See the `mermaid-obsidian-plain-labels` memory for the full writeup.
+- **Use `<br>` for line breaks inside labels — never a literal `\n`.** Mermaid labels are single logical lines; a literal newline breaks the statement rather than wrapping text. (Obsidian's mermaid 11.13 does convert a literal `\n`, but GitHub's renderer is untested — `<br>` stays the portable form.)
+- **Obsidian vault diagrams need no special casing (Obsidian ≥ 1.13).** `<br/>`, HTML entities (`&lt;`/`&gt;`), and list-marker-leading labels (`- `, `40. `) all render correctly — Obsidian 1.13 bundles mermaid 11.x and leaves `htmlLabels` unset, so labels take the tolerant HTML path. Do not strip them, and do not add `#NN;` numeric escapes (those survive *only* on the HTML path, so they are the less portable form). The two rules above still apply. Older Obsidian on mermaid 10.x did fail this way; see the `mermaid-obsidian-plain-labels` memory for the correction and that history.
 
 **Bias toward the big picture first.** Lead with the high-level view, then add detail diagrams only where the depth genuinely helps.
 
