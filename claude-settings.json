@@ -250,7 +250,6 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
   "enableAllProjectMcpServers": true,
   "hooks": {
     "Notification": [
@@ -367,6 +366,16 @@
           {
             "type": "command",
             "command": "python3 ~/.claude/hooks/nudge-read-conversion.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-gitops-branch-k8s-edit.sh",
             "timeout": 5
           }
         ]
@@ -500,7 +509,8 @@
     "ruby-lsp@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
-    "vault-librarian@ai": true
+    "vault-librarian@ai": true,
+    "rust-analyzer-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "ai": {
@@ -541,11 +551,10 @@
   },
   "effortLevel": "high",
   "tui": "fullscreen",
-  "showMessageTimestamps": true,
-  "autoMemoryDirectory": "${HOME}/vaults/workspace/Memory/auto",
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "auto",
+  "showMessageTimestamps": true,
   "skipAutoPermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754059139990
