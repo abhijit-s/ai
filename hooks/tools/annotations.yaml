@@ -121,3 +121,81 @@ mcp__turbo-rag__semantic_search:
   description: Pure embedding-based semantic search (fallback when hybrid over-blends)
   category: [semantic-search]
   capability_tags: [semantic, embedding-based]
+
+# --- Knowledge graph + note structure ---------------------------------------
+#
+# The same turbo-rag index also answers link-graph and note-structure questions
+# over the indexed markdown. These are capability categories, not preference
+# chains: each tool is the only way to get its answer, and the alternative is
+# hand-rolling it from grep (slow, and wrong for wikilink resolution). They are
+# categorised so they appear in the SubagentStart digest at all — an agent that
+# never sees them reimplements backlink discovery with a regex.
+#
+# Administrative tools (health, stats, reindex*, watcher_status, corpus_status,
+# estimate_corpus, register_corpus, get_chunk) stay deliberately uncategorised:
+# they are operator verbs, not discovery ones, and would only pad the digest.
+
+mcp__turbo-rag__find_backlinks:
+  description: Notes linking TO a target via wikilink
+  category: [knowledge-graph]
+  capability_tags: [graph, wikilink, inbound-links]
+
+mcp__turbo-rag__graph_neighbors:
+  description: Link-graph neighbours of a note, in/out/both, to a given depth
+  category: [knowledge-graph]
+  capability_tags: [graph, traversal]
+
+mcp__turbo-rag__similar_notes:
+  description: Notes most similar to a given note ("more like this")
+  category: [knowledge-graph]
+  capability_tags: [graph, semantic, embedding-based]
+
+mcp__turbo-rag__search_in_neighborhood:
+  description: Search restricted to the link-graph neighbourhood of an anchor note
+  category: [knowledge-graph, semantic-search]
+  capability_tags: [graph, semantic, scoped-search]
+
+mcp__turbo-rag__find_orphans:
+  description: Notes no other note links to
+  category: [knowledge-graph]
+  capability_tags: [graph, link-hygiene]
+
+mcp__turbo-rag__find_dangling_links:
+  description: Wikilinks pointing at notes that do not exist
+  category: [knowledge-graph]
+  capability_tags: [graph, link-hygiene]
+
+mcp__turbo-rag__find_ambiguous_links:
+  description: Wikilinks whose target was contested between several notes
+  category: [knowledge-graph]
+  capability_tags: [graph, link-hygiene]
+
+mcp__turbo-rag__get_note:
+  description: Read a whole indexed note by name — title, metadata, body, links
+  category: [note-structure]
+  capability_tags: [note-read, metadata]
+
+mcp__turbo-rag__outline:
+  description: Heading structure of one note
+  category: [note-structure]
+  capability_tags: [note-read, structure]
+
+mcp__turbo-rag__list_notes:
+  description: List indexed notes by frontmatter filter
+  category: [note-structure]
+  capability_tags: [note-read, filtered-listing]
+
+mcp__turbo-rag__facet_counts:
+  description: Value counts for one frontmatter key across the corpus
+  category: [note-structure]
+  capability_tags: [metadata, aggregation]
+
+mcp__turbo-rag__tag_cloud:
+  description: Most-used tags across the indexed markdown
+  category: [note-structure]
+  capability_tags: [metadata, aggregation]
+
+mcp__turbo-rag__timeline:
+  description: Notes ordered by a date frontmatter key, over a range
+  category: [note-structure]
+  capability_tags: [metadata, temporal]

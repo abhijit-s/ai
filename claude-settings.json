@@ -391,7 +391,7 @@
           },
           {
             "type": "command",
-            "command": "~/.claude/hooks/preload-fff-tools.sh",
+            "command": "~/.claude/hooks/preload-search-tools.sh",
             "timeout": 5
           },
           {

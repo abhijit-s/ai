@@ -3,7 +3,17 @@
   "profiles": {
     "default": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
+      "categories": [
+        "search-content",
+        "find-files",
+        "git-state",
+        "list-dir",
+        "semantic-search",
+        "knowledge-graph",
+        "note-structure",
+        "browser-automation",
+        "browser-visual"
+      ]
     },
     "session-default": {
       "tools": [],
@@ -13,16 +23,40 @@
         "git-state",
         "list-dir",
         "ast-search",
-        "semantic-search"
+        "semantic-search",
+        "knowledge-graph",
+        "note-structure",
+        "browser-automation",
+        "browser-visual"
       ]
     },
     "claude": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
+      "categories": [
+        "search-content",
+        "find-files",
+        "git-state",
+        "list-dir",
+        "semantic-search",
+        "knowledge-graph",
+        "note-structure",
+        "browser-automation",
+        "browser-visual"
+      ]
     },
     "general-purpose": {
       "tools": [],
-      "categories": ["search-content", "find-files", "git-state", "list-dir", "semantic-search"]
+      "categories": [
+        "search-content",
+        "find-files",
+        "git-state",
+        "list-dir",
+        "semantic-search",
+        "knowledge-graph",
+        "note-structure",
+        "browser-automation",
+        "browser-visual"
+      ]
     },
     "code-explorer": {
       "tools": [],
@@ -58,7 +92,15 @@
     },
     "Explore": {
       "tools": [],
-      "categories": ["search-content", "find-files", "ast-search", "list-dir", "semantic-search"]
+      "categories": [
+        "search-content",
+        "find-files",
+        "ast-search",
+        "list-dir",
+        "semantic-search",
+        "knowledge-graph",
+        "note-structure"
+      ]
     },
     "Plan": {
       "tools": [],

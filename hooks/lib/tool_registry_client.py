@@ -155,6 +155,40 @@ def is_under_code_repo_root(cwd: str, roots: Iterable[str]) -> bool:
     return any(cwd == (r := _normalize_path(root)) or cwd.startswith(r + "/") for root in roots)
 
 
+# turbo-rag's own registration file — the source of truth for which paths are
+# semantically indexed, read directly so a cold engine never costs a hook its
+# time budget. Profile follows the engine's own TURBO_RAG_PROFILE convention.
+def _turbo_rag_roots_path() -> str:
+    config_home = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    profile = os.environ.get("TURBO_RAG_PROFILE") or "default"
+    return os.path.join(config_home, "turbo-rag", profile, "corpus_roots.json")
+
+
+def load_turbo_rag_roots(path: str | None = None) -> list[dict]:
+    """Return turbo-rag's registered corpus roots, or [] if unreadable."""
+    p = path or _turbo_rag_roots_path()
+    try:
+        with open(p) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError, IsADirectoryError):
+        return []
+    return [r for r in data if isinstance(r, dict) and r.get("path")] if isinstance(data, list) else []
+
+
+def resolve_turbo_rag_root(cwd: str, roots: Iterable[dict]) -> dict | None:
+    """Return the most-specific corpus root containing cwd, or None.
+
+    Most-specific wins for the same reason it does for fff MCP roots: a nested
+    corpus (surge.easygo.io) is registered separately from the umbrella that
+    contains it, and its handle is the one worth naming.
+    """
+    if not cwd:
+        return None
+    cwd = _normalize_path(cwd)
+    matches = [r for r in roots if cwd == (p := _normalize_path(r["path"])) or cwd.startswith(p + "/")]
+    return max(matches, key=lambda r: len(_normalize_path(r["path"])), default=None)
+
+
 def _empty_manifest() -> dict:
     return {
         "schema_version": SCHEMA_VERSION,

@@ -34,7 +34,9 @@ from hooks.lib.tool_registry_client import (
     load_code_repo_roots,
     load_manifest,
     load_profiles,
+    load_turbo_rag_roots,
     resolve_profile,
+    resolve_turbo_rag_root,
 )
 
 # Matches the audit-search-tools.sh verb inventory so audit and nudge agree.
@@ -207,6 +209,28 @@ def main():
                 "explicit base_path, so it can't be assumed to just work. rg is still "
                 "fine for a literal/plain-text match."
             )
+        # The semantic-search category has no bash verb of its own, so the
+        # generic category machinery below can never reach it — a conceptual
+        # search is a decision, not a command. The one honest signal available
+        # is the path: a content search inside a turbo-rag corpus root MIGHT be
+        # the conceptual kind, and that is exactly where a lexical miss reads
+        # as "not found" instead of "wrong tool". Path-based, not a guess at
+        # what the query means. cwd only — an explicit path argument elsewhere
+        # in the command is not parsed.
+        if verb == "rg":
+            corpus = resolve_turbo_rag_root(input_data.get("cwd") or "", load_turbo_rag_roots())
+            if corpus:
+                handle = corpus.get("name")
+                scope = f' Scope it with roots="@{handle}".' if handle else ""
+                emit(
+                    "TOOL GUIDELINE NUDGE (semantic): this path is inside a turbo-rag "
+                    f"corpus root ({corpus['path']}). If you are looking for prose ABOUT "
+                    "a topic rather than a known identifier, rg misses it whenever the "
+                    "text words the idea differently — prefer mcp__turbo-rag__hybrid_search."
+                    f"{scope} Load via ToolSearch "
+                    "(select:mcp__turbo-rag__hybrid_search,mcp__turbo-rag__semantic_search). "
+                    "For a literal identifier, rg is fine — carry on."
+                )
         manifest_name = verb
         fallback_key = verb
     elif tool_name.startswith("mcp__"):

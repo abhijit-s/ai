@@ -10,7 +10,7 @@ decisions, or no-op (silent exit).
 | Hook                                         | Purpose                                                      |
 | -------------------------------------------- | ------------------------------------------------------------ |
 | `obsidian-second-brain/hooks/load_vault_context.py` | Loads vault identity + active state.                  |
-| `preload-fff-tools.sh`                       | Primes the LLM to call `ToolSearch` for fff MCP early.        |
+| `preload-search-tools.sh`                    | Primes the LLM to call `ToolSearch` for fff MCP (lexical) and turbo-rag (conceptual) early; lists the live turbo-rag corpus roots. |
 | `refresh-tool-registry.sh`                   | Rebuilds `~/.claude/cache/tool-registry-manifest.json`.       |
 
 ## SubagentStart

@@ -3,7 +3,7 @@
 #
 # Spawns the tool-registry MCP server with --refresh-and-exit, which runs
 # discovery, atomically writes ~/.claude/cache/tool-registry-manifest.json,
-# and exits 0. Runs AFTER preload-fff-tools.sh in claude-settings.json so the
+# and exits 0. Runs AFTER preload-search-tools.sh in claude-settings.json so the
 # preload reminder lands first.
 #
 # On timeout or failure, exits 0 silently — the PreToolUse + SubagentStart

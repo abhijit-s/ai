@@ -5,6 +5,7 @@ First decide the KIND of search:
     - `mcp__turbo-rag__hybrid_search` — DEFAULT; blends vector + lexical signal. Use when unsure.
     - `mcp__turbo-rag__semantic_search` — pure vector similarity; when the query shares no keywords with the target text.
   Scope: only indexed corpus roots — outside them turbo-rag returns `meta.unregistered_roots`; fall back to the lexical ladder. If a conceptual search returns weak/empty results, also drop to the ladder. Like fff MCP, turbo-rag tools are deferred — load with `select:mcp__turbo-rag__hybrid_search,mcp__turbo-rag__semantic_search` before calling.
+  The same index also answers link-graph and note-structure questions over the indexed markdown — backlinks, orphans, dangling/ambiguous links, similar notes, neighbourhood-scoped search, outlines, tag clouds, timelines, frontmatter facets. See the `knowledge-graph` and `note-structure` sections of your tool digest for the exact names, and load them on demand; do NOT reimplement wikilink resolution with a regex.
 
 Lexical ladder — follow this tool order and stop at the first tool that fits:
 

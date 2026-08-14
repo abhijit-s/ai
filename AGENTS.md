@@ -24,7 +24,9 @@ Before choosing a tool, decide what *kind* of search this is:
 4. **`fd`** — file discovery by name/pattern
 5. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
 
-The **lexical ladder** is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent; the CLAUDE.md wording and hook wording are intentionally identical there. That hook fires on bash only — the conceptual/turbo-rag branch above is MCP-level and is not gated by it.
+The **lexical ladder** is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent; the CLAUDE.md wording and hook wording are intentionally identical there. Both branches also reach the **main thread** at `SessionStart` via `preload-search-tools.sh`, which names the `ToolSearch` select query for each family (both are deferred tools) and lists the live turbo-rag corpus roots read from `corpus_roots.json`.
+
+The conceptual branch has no bash verb of its own, so it cannot be enforced the way the ladder is — a conceptual search is a decision, not a command. The one honest signal is the path: running `rg` with a cwd **inside a registered turbo-rag corpus root** earns a nudge toward `hybrid_search` carrying that root's `@handle`. Path-based, never a guess at what the query means, and continuing with `rg` for a literal identifier is explicitly fine.
 
 **Never reach for `grep` or `find` by default.** They are familiar but slower, `.gitignore`-unaware, and lack the structured output of modern alternatives. If you find yourself typing `grep -r` or `find .`, stop and use `rg` or `fd` instead.
 
