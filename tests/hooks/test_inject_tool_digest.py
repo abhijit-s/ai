@@ -67,6 +67,10 @@ def run_hook(input_obj: dict, fake_home: str | None = None):
     env = os.environ.copy()
     if fake_home:
         env["HOME"] = fake_home
+        # XDG_CONFIG_HOME is set on real machines and would otherwise point the
+        # fff root resolver at the developer's own config, leaking an unrelated
+        # base_path hint into the digest under test.
+        env["XDG_CONFIG_HOME"] = os.path.join(fake_home, ".config")
     proc = subprocess.run(
         ["python3", HOOK],
         input=json.dumps(input_obj).encode(),

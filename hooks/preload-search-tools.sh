@@ -13,16 +13,24 @@
 # inject-guidelines.py (tool-hierarchy slug) and inject-tool-digest.py; the main
 # thread has neither, so this hook is its only structured pointer at the two families.
 #
-# Corpus roots are read from turbo-rag's own corpus_roots.json rather than by asking
-# the engine — a cold engine takes seconds to answer and this hook has a 5s budget.
+# Roots for both families are read from their own on-disk config rather than by
+# asking the engines — a cold engine takes seconds to answer and this hook has a 5s
+# budget. turbo-rag roots come from corpus_roots.json; fff roots from fff's
+# config.toml via hooks/lib/fff_roots.py, which also resolves this session's cwd to
+# the base_path it must pass (the same resolver the SubagentStart digest uses).
 
-read -r input  # consume stdin even though we don't use it; hooks must drain it
+read -r input
 
 # Skip for subagents — they have their own guideline + digest injection.
 src=$(echo "$input" | jq -r '.source // ""' 2>/dev/null)
 if [ "$src" = "subagent" ]; then
   exit 0
 fi
+
+here=$(cd "$(dirname "$0")" && pwd)
+cwd=$(echo "$input" | jq -r '.cwd // ""' 2>/dev/null)
+fff_roots=$(python3 "$here/lib/fff_roots.py" --cwd "$cwd" 2>/dev/null)
+[ -n "$fff_roots" ] || fff_roots="   (fff config unreadable — call mcp__fff__list_roots for the live list)"
 
 profile="${TURBO_RAG_PROFILE:-default}"
 roots_file="${XDG_CONFIG_HOME:-$HOME/.config}/turbo-rag/$profile/corpus_roots.json"
@@ -43,13 +51,16 @@ family BEFORE your first search-class action.
 1. LEXICAL — you know the identifier, symbol, literal string, or filename pattern.
    fff MCP heads the ladder inside a git-indexed project:
 
-     ToolSearch(query: "select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep,mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status,mcp__fff__record_access", max_results: 7)
+     ToolSearch(query: "select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep,mcp__fff__list_directories,mcp__fff__list_recent_files,mcp__fff__get_git_status,mcp__fff__record_access,mcp__fff__list_roots", max_results: 8)
 
    Once loaded, USE them — do not fall back to rg/fd/grep/find/ls/eza/git-status
    unless you have a concrete reason fff does not fit (searching outside the indexed
    repo, or an fff error you have already investigated). Always pass base_path: fff
    MCP has ONE default root (the personal vault), so an unqualified search silently
-   misses your working tree and reads as "not found".
+   misses your working tree and reads as "not found". Most-specific root wins — a
+   nested corpus repo beats an umbrella root that also contains it.
+
+$fff_roots
 
 2. CONCEPTUAL / SEMANTIC — you are after notes or prose ABOUT a topic, where the
    wording may differ from your query. turbo-rag (Retrieval-Augmented Generation
