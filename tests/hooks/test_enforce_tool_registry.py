@@ -98,17 +98,37 @@ def parse(out):
     return json.loads(text)
 
 
-def test_grep_from_session_default_emits_fff_nudge(fake_home):
+def test_file_search_grep_is_denied_and_redirected(fake_home):
     out = run_hook(
         {"tool_name": "Bash", "tool_input": {"command": "grep -r pattern ."}},
         fake_home,
     )
     payload = parse(out)
     assert payload is not None
-    ac = payload["hookSpecificOutput"]["additionalContext"]
-    assert "mcp__fff__grep" in ac
-    assert "ast-grep" in ac
-    assert payload["hookSpecificOutput"]["permissionDecision"] == "allow"
+    hso = payload["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny"
+    assert "mcp__fff__grep" in hso["additionalContext"]
+    # A denial has to tell the user why, not just the model.
+    assert hso["permissionDecisionReason"] == hso["additionalContext"]
+
+
+def test_grep_denial_does_not_depend_on_the_registry(fake_home):
+    # The deny fires before the manifest is consulted, so a cold/broken
+    # registry can't silently reopen the last-resort tier.
+    os.remove(os.path.join(fake_home, ".claude", "cache", "tool-registry-manifest.json"))
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "grep -r pattern ."}},
+        fake_home,
+    )
+    assert parse(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_escape_marker_forces_a_genuine_grep_through(fake_home):
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "grep -r pattern . # fff-ok"}},
+        fake_home,
+    )
+    assert out.stdout.decode().strip() == ""
 
 
 def test_mcp_fff_grep_call_emits_no_nudge(fake_home):
@@ -160,15 +180,16 @@ def test_block_unhealthy_profile_denies(fake_home, tmp_path):
 
 
 def test_missing_manifest_falls_back_to_embedded_nudge(fake_home):
-    # Delete the cache to trigger the registry-unhealthy fallback.
+    # Delete the cache to trigger the registry-unhealthy fallback. Uses a verb
+    # that reaches the manifest lookup — grep/find are denied before it.
     os.remove(os.path.join(fake_home, ".claude", "cache", "tool-registry-manifest.json"))
     out = run_hook(
-        {"tool_name": "Bash", "tool_input": {"command": "grep -r foo ."}}, fake_home
+        {"tool_name": "Bash", "tool_input": {"command": "git status"}}, fake_home
     )
     payload = parse(out)
     assert payload is not None
     ac = payload["hookSpecificOutput"]["additionalContext"]
-    assert "mcp__fff__grep" in ac
+    assert "mcp__fff__get_git_status" in ac
     assert "fallback" in ac.lower()
 
 
@@ -188,23 +209,39 @@ def test_quoted_grep_in_string_does_not_trigger_nudge(fake_home):
         assert payload["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 
-def test_piped_grep_triggers_nudge(fake_home):
+def test_piped_grep_is_left_alone_as_a_stream_filter(fake_home):
+    # `cat foo | grep bar` filters another command's output — no indexed
+    # search tool can replace that, so the hook stays out of the way.
     out = run_hook(
         {"tool_name": "Bash", "tool_input": {"command": "cat foo | grep bar"}},
         fake_home,
     )
-    payload = parse(out)
-    assert payload is not None
-    assert "mcp__fff__grep" in payload["hookSpecificOutput"]["additionalContext"]
+    assert out.stdout.decode().strip() == ""
 
 
-def test_subshell_grep_triggers_nudge(fake_home):
+def test_recursive_grep_after_a_pipe_is_still_a_file_search(fake_home):
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "echo x | grep -r bar ."}},
+        fake_home,
+    )
+    assert parse(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_grep_heading_a_pipeline_is_a_file_search(fake_home):
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "grep bar foo.txt | head -5"}},
+        fake_home,
+    )
+    assert parse(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_subshell_grep_is_denied(fake_home):
     out = run_hook(
         {"tool_name": "Bash", "tool_input": {"command": "echo $(grep foo bar)"}},
         fake_home,
     )
     payload = parse(out)
-    assert payload is not None
+    assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert "mcp__fff__grep" in payload["hookSpecificOutput"]["additionalContext"]
 
 
@@ -215,14 +252,16 @@ def test_non_search_bash_command_passes_through(fake_home):
     assert out.stdout.decode().strip() == ""
 
 
-def test_find_emits_fff_find_files_nudge(fake_home):
+def test_find_file_discovery_is_denied_and_redirected(fake_home):
     out = run_hook(
         {"tool_name": "Bash", "tool_input": {"command": 'find . -name "*.rb"'}},
         fake_home,
     )
     payload = parse(out)
-    assert payload is not None
-    assert "mcp__fff__find_files" in payload["hookSpecificOutput"]["additionalContext"]
+    hso = payload["hookSpecificOutput"]
+    assert hso["permissionDecision"] == "deny"
+    assert "mcp__fff__find_files" in hso["additionalContext"]
+    assert "fd" in hso["additionalContext"]
 
 
 def test_rg_still_gets_nudged_toward_fff(fake_home):

@@ -9,8 +9,11 @@ For every Bash and `mcp__*` call:
   3. If the call is out-of-profile or known-unhealthy, emit an
      additionalContext nudge naming the registry-derived alternative.
 
-v1 always returns permissionDecision: allow (KTD5 safety claim). A bug
-produces noise, never blocks. block_unhealthy is forward-compat only.
+Registry-derived nudges always return permissionDecision: allow (KTD5
+safety claim) — a manifest bug produces noise, never a block. The one
+deliberate exception is GREP_FIND_DENY below: grep/find used as a file
+search are denied outright, with the FFF_ESCAPE marker as the escape
+hatch. block_unhealthy is forward-compat only.
 
 On registry-unhealthy (manifest missing/unparseable), fall back to a
 small embedded copy of the current hard-coded chain so behavior never
@@ -76,10 +79,10 @@ GREP_FIND_DENY = {
 }
 
 # Embedded fallback when the registry is unavailable. Intentionally minimal
-# (per KTD5) — the canonical chains live in the registry.
+# (per KTD5) — the canonical chains live in the registry. grep/find have no
+# entry: GREP_FIND_DENY returns before the manifest is consulted, so theirs
+# could never fire.
 EMBEDDED_FALLBACK = {
-    "grep": "Per CLAUDE.md tool hierarchy: prefer mcp__fff__grep (frecency-ranked) first, then ast-grep, then rg. grep is a last resort.",
-    "find": "Per CLAUDE.md tool hierarchy: prefer mcp__fff__find_files (frecency-ranked) first, then fd. find is a last resort.",
     "rg": "Inside a git-indexed project, mcp__fff__grep is the higher-tier choice (frecency-ranked, indexed). Load via ToolSearch (select:mcp__fff__grep,mcp__fff__find_files,mcp__fff__multi_grep).",
     "fd": "Inside a git-indexed project, mcp__fff__find_files is the higher-tier choice (frecency-ranked). Load via ToolSearch (select:mcp__fff__find_files).",
     "git-status": "Prefer mcp__fff__get_git_status — frecency-enriched, grouped by status. Load via ToolSearch (select:mcp__fff__get_git_status).",
