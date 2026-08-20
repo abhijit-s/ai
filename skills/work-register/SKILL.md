@@ -70,13 +70,14 @@ The exact marker → column map is config, not code — read it from the registe
 
 | Field | Owner | Flows |
 |---|---|---|
-| Existence, text, grouping | Day file | day file → board |
-| Status: column + checkbox | Board | board → day file |
+| Existence, text, grouping | Day file | day file → board (`sync` adds new, `--refresh` updates existing) |
+| Status: column + checkbox | Board | board → day file (`--reconcile`, `--move`) |
 
 ```bash
 sync_board.py                # add new cards; never moves an existing one
 sync_board.py --move ID=COL  # relocate a card + reconcile its day file
 sync_board.py --reconcile    # stamp board status back onto the day files (text untouched)
+sync_board.py --refresh      # re-render card text from the day files; KEEPS placement
 sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
 sync_board.py --dry-run      # show what would happen, write nothing
 sync_board.py --show-config  # resolved config layers
@@ -86,6 +87,11 @@ sync_board.py --register <name> --since 2026-08-01
 Run the default sync right after writing a day file, and **report which column each new
 card landed in** — that is the user's confirmation that routing matched their intent.
 Offer `--reconcile` when they mention having moved cards or finished something.
+
+**If you correct an item's text in a day file, run `--refresh`** — plain `sync` is additive
+and will leave the card showing the old wording. `--refresh` re-renders every card face
+from its day-file item while keeping the column and checkbox the board holds, so a text fix
+propagates without disturbing placement.
 
 Reach for `--rebuild` only after the lane set changes, and say plainly that drags are
 lost. Deletions stick via the `.sync-state.json` ledger, so a card the user deleted from
@@ -129,7 +135,8 @@ then drop a `.work-register.toml` at that root for its conventions.
 | Recompute card placement on sync | Additive only — placement is the user's |
 | Hand-edit a day file to update status | Move the card on the board, then `--reconcile` |
 | Re-list yesterday's unfinished item in today's file | It is already on the board |
-| `--rebuild` to "tidy up" | It discards the user's drags |
+| `--rebuild` to "tidy up" | It discards the user's drags — `--refresh` if you only fixed text |
+| Leaving a corrected day-file item stale on the board | `--refresh` |
 | Restate track status in the register | Link to `Memory/auto/*` / `RESUME.md` |
 | Hardcode a vault path in the engine or skill | Read it from config |
 | Add a tag rule in Python | Add `[[tag_rules]]` to the corpus config |

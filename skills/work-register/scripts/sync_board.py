@@ -21,6 +21,7 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py                # add cards the board has not seen; never moves one
     sync_board.py --reconcile    # board status (column + checkbox) → day files
     sync_board.py --move ID=COLUMN   # relocate a card, then reconcile the day file
+    sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
 """
@@ -98,6 +99,7 @@ DEFAULTS: dict = {
         "rebuild": "♻️",
         "deleted": "\U0001f5d1️",
         "moved": "\U0001f446",
+        "refreshed": "\U0001f504",
     },
     "kanban": {"settings": '{"kanban-plugin":"board","show-checkboxes":true}'},
     "paths": {"register_dir": "Register", "board": "WORK-REGISTER.md"},
@@ -574,6 +576,12 @@ def main() -> int:
         "COLUMN matches on substring, so the emoji is optional",
     )
     parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="re-render card faces from the day files while KEEPING each card's column "
+        "(propagates a text correction without touching placement)",
+    )
+    parser.add_argument(
         "--reconcile",
         action="store_true",
         help="stamp the board's status (column + checkbox) back onto the day files",
@@ -654,6 +662,41 @@ def main() -> int:
             len(reconcile_day_file(cfg, path, status, mutate=True)) for path in day_files
         )
         print(f"{log['done']} {len(moved)} move(s) · {touched} day-file line(s) reconciled")
+        return 0
+
+    # --- refresh: day-file text → existing cards, placement preserved ------------
+    # Text is the day file's field, so a correction there must reach the board. Placement
+    # is the board's, so it is read back and re-applied rather than recomputed.
+    if args.refresh:
+        placement = board_status(cfg, columns)
+        rendered: dict[str, str] = {}
+        for path in day_files:
+            items, _ = parse_day_file(cfg, path, path.stem, mutate=False)
+            for item in items:
+                if item.item_id in placement:
+                    rendered[item.item_id] = render_card(cfg, item)
+
+        changed = 0
+        for column, cards in columns.items():
+            for index, card in enumerate(list(cards)):
+                ids = [m.group(1) for m in id_pattern(cfg["ids"]["prefix"]).finditer(card)]
+                if len(ids) != 1 or ids[0] not in rendered:
+                    continue
+                fresh = rendered[ids[0]]
+                # The checkbox belongs to the board, so keep whatever it says today.
+                if card.lstrip().startswith("- [x]"):
+                    fresh = re.sub(r"^- \[ \]", "- [x]", fresh, count=1)
+                if fresh != card:
+                    cards[index] = fresh
+                    changed += 1
+                    print(f"   {log['refreshed']} {ids[0]} re-rendered in {column}")
+
+        if args.dry_run:
+            print(f"{log['dry_run']} dry run — would re-render {changed} card(s)")
+            return 0
+        if changed:
+            board_path.write_text(render_board(cfg, columns), encoding="utf-8")
+        print(f"{log['done']} {changed} card(s) re-rendered · placement preserved")
         return 0
 
     # --- reconcile: board → day files, status only -------------------------------
