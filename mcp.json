@@ -33,6 +33,34 @@
       "args": [],
       "env": {}
     },
+    "lightpanda": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/lightpanda",
+      "args": ["mcp"],
+      "env": {}
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/playwright-mcp",
+      "args": [],
+      "env": {}
+    },
+    "markitdown": {
+      "type": "stdio",
+      "command": "${HOME}/.local/bin/markitdown-mcp",
+      "args": [],
+      "env": {}
+    },
+    "pencil": {
+      "type": "stdio",
+      "command": "${HOME}/.pencil/mcp/visual_studio_code/out/mcp-server-darwin-arm64",
+      "args": ["--app", "visual_studio_code", "--agent", "claudeCodeCLI"],
+      "env": {}
+    },
+    "cloudflare": {
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp"
+    },
     "turbo-rag": {
       "type": "stdio",
       "command": "${HOME}/my-workspace/ai/turbo-rag/.venv/bin/python",

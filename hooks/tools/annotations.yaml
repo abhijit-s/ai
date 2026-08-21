@@ -199,3 +199,269 @@ mcp__turbo-rag__timeline:
   description: Notes ordered by a date frontmatter key, over a range
   category: [note-structure]
   capability_tags: [metadata, temporal]
+
+# --- Browser automation -----------------------------------------------------
+#
+# Two categories, split on capability rather than preference:
+#
+#   browser-automation  Lightpanda heads every chain. It is a headless browser
+#                       with no renderer — orders of magnitude cheaper in RAM
+#                       and startup than a Chromium instance — so navigation,
+#                       reading, scraping, extraction and DOM interaction all
+#                       belong to it. Playwright's equivalents carry no chain,
+#                       so they sort below as the fallback tier.
+#
+#   browser-visual      Playwright-exclusive capabilities: pixels, viewport,
+#                       drag/drop, native dialogs, tabs, uploads and network
+#                       interception. Lightpanda has NO equivalent — nothing
+#                       to prefer over, so no chain here.
+#
+# The "if lightpanda is unavailable, use playwright" half needs no annotation:
+# a failed handshake marks the server unhealthy, and both the SubagentStart
+# digest and the PreToolUse nudge filter alternatives on health. Playwright
+# becomes the visible head of the chain automatically.
+#
+# Descriptions are overridden deliberately — lightpanda ships multi-paragraph
+# tool descriptions that would bloat every sub-agent's digest.
+
+mcp__lightpanda__goto:
+  description: Navigate to a URL and hold the page in memory for later reads
+  category: [browser-automation]
+  capability_tags: [browser, headless, no-render, navigation, low-memory]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_navigate, mcp__playwright__browser_navigate_back]
+
+mcp__lightpanda__search:
+  description: Web search returning markdown results (Brave/Tavily, DuckDuckGo fallback)
+  category: [browser-automation]
+  capability_tags: [browser, headless, web-search]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_navigate]
+
+mcp__lightpanda__markdown:
+  description: Render the page (or a subtree via selector) as markdown
+  category: [browser-automation]
+  capability_tags: [browser, headless, page-read, markdown]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_snapshot]
+
+mcp__lightpanda__extract:
+  description: Extract structured data via a CSS-selector schema — the recording read
+  category: [browser-automation]
+  capability_tags: [browser, headless, structured-extraction, replayable]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_snapshot, mcp__playwright__browser_evaluate]
+
+mcp__lightpanda__html:
+  description: Raw HTML for the document or one node's outerHTML
+  category: [browser-automation]
+  capability_tags: [browser, headless, page-read, raw-html]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_snapshot]
+
+mcp__lightpanda__links:
+  description: All page links as JSON (text, resolved href, backendNodeId)
+  category: [browser-automation]
+  capability_tags: [browser, headless, page-read, link-extraction]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_snapshot]
+
+mcp__lightpanda__tree:
+  description: Simplified semantic DOM tree (role, name, value per node)
+  category: [browser-automation]
+  capability_tags: [browser, headless, accessibility-tree, page-read]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_snapshot]
+
+mcp__lightpanda__findElement:
+  description: Find interactive elements by role and/or accessible name
+  category: [browser-automation]
+  capability_tags: [browser, headless, element-lookup]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_find]
+
+mcp__lightpanda__click:
+  description: Click an element by CSS selector or backendNodeId
+  category: [browser-automation]
+  capability_tags: [browser, headless, interaction]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_click]
+
+mcp__lightpanda__fill:
+  description: Fill text into an input element
+  category: [browser-automation]
+  capability_tags: [browser, headless, interaction, form-fill]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_type, mcp__playwright__browser_fill_form]
+
+mcp__lightpanda__selectOption:
+  description: Select a <select> option by value
+  category: [browser-automation]
+  capability_tags: [browser, headless, interaction, form-fill]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_select_option]
+
+mcp__lightpanda__hover:
+  description: Hover an element, firing mouseover/mouseenter
+  category: [browser-automation]
+  capability_tags: [browser, headless, interaction]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_hover]
+
+mcp__lightpanda__press:
+  description: Press a keyboard key (dispatches keydown/keyup)
+  category: [browser-automation]
+  capability_tags: [browser, headless, interaction, keyboard]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_press_key]
+
+mcp__lightpanda__waitForSelector:
+  description: Wait for a CSS selector to appear, returning its backendNodeId
+  category: [browser-automation]
+  capability_tags: [browser, headless, synchronization]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_wait_for]
+
+mcp__lightpanda__waitForState:
+  description: Wait for the current page to reach a load state (prefer networkidle)
+  category: [browser-automation]
+  capability_tags: [browser, headless, synchronization]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_wait_for]
+
+mcp__lightpanda__evaluate:
+  description: Evaluate JavaScript in the page context (escape hatch — prefer extract)
+  category: [browser-automation]
+  capability_tags: [browser, headless, script-eval]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_evaluate, mcp__playwright__browser_run_code_unsafe]
+
+mcp__lightpanda__consoleLogs:
+  description: Buffered console.log/warn/error messages from the current page
+  category: [browser-automation]
+  capability_tags: [browser, headless, diagnostics]
+  prefer_over:
+    browser-automation: [mcp__playwright__browser_console_messages]
+
+# Playwright — fallback tier for browser-automation. No prefer_over chain, so
+# these sort below every lightpanda entry in the digest and trigger a nudge
+# whenever a healthy lightpanda equivalent exists.
+
+mcp__playwright__browser_navigate:
+  description: Navigate to a URL in a full Chromium instance (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, navigation]
+
+mcp__playwright__browser_navigate_back:
+  description: Go back one history entry (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, navigation]
+
+mcp__playwright__browser_snapshot:
+  description: Accessibility snapshot of the page (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, accessibility-tree, page-read]
+
+mcp__playwright__browser_find:
+  description: Find elements on the page (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, element-lookup]
+
+mcp__playwright__browser_click:
+  description: Click an element (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction]
+
+mcp__playwright__browser_type:
+  description: Type text into an element (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction, form-fill]
+
+mcp__playwright__browser_fill_form:
+  description: Fill multiple form fields in one call (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction, form-fill]
+
+mcp__playwright__browser_select_option:
+  description: Select a dropdown option (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction, form-fill]
+
+mcp__playwright__browser_hover:
+  description: Hover an element (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction]
+
+mcp__playwright__browser_press_key:
+  description: Press a keyboard key (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, interaction, keyboard]
+
+mcp__playwright__browser_wait_for:
+  description: Wait for text, time, or a condition (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, synchronization]
+
+mcp__playwright__browser_evaluate:
+  description: Evaluate JavaScript in the page (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, script-eval]
+
+mcp__playwright__browser_run_code_unsafe:
+  description: Run arbitrary Playwright API code (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, script-eval]
+
+mcp__playwright__browser_console_messages:
+  description: Console messages from the page (fallback)
+  category: [browser-automation]
+  capability_tags: [browser, full-render, chromium, diagnostics]
+
+# Playwright-exclusive. Lightpanda has no renderer, no tab model, no native
+# dialog handling and no network interception, so there is nothing to rank
+# against — reach for these directly.
+
+mcp__playwright__browser_take_screenshot:
+  description: Screenshot the page or an element — lightpanda cannot render pixels
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, screenshot, pixels]
+
+mcp__playwright__browser_resize:
+  description: Resize the viewport — requires a real rendered viewport
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, viewport]
+
+mcp__playwright__browser_drag:
+  description: Drag between two elements — needs a real pointer
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, pointer]
+
+mcp__playwright__browser_drop:
+  description: Drop onto an element — needs a real pointer
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, pointer]
+
+mcp__playwright__browser_file_upload:
+  description: Upload files through a file input
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, file-upload]
+
+mcp__playwright__browser_handle_dialog:
+  description: Accept or dismiss a native alert/confirm/prompt dialog
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, native-dialog]
+
+mcp__playwright__browser_tabs:
+  description: List, open, close, or switch browser tabs
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, tab-management]
+
+mcp__playwright__browser_network_requests:
+  description: List network requests the page issued
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, network-interception]
+
+mcp__playwright__browser_network_request:
+  description: Inspect a single network request
+  category: [browser-visual]
+  capability_tags: [browser, full-render, chromium, network-interception]

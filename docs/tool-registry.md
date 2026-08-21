@@ -141,6 +141,58 @@ out of order in the race window. Single-spawn-at-a-time and
 different-type parallel spawns are unaffected. This is acceptable for
 v1.
 
+## Browser automation: two categories, split on capability
+
+Browser tools are annotated across two categories rather than one, because
+the two servers are not interchangeable:
+
+| Category             | Head of chain | Covers                                                                     |
+| -------------------- | ------------- | -------------------------------------------------------------------------- |
+| `browser-automation` | lightpanda    | Navigation, page reads, extraction, DOM interaction, waits, script eval    |
+| `browser-visual`     | playwright    | Screenshots, viewport, drag/drop, uploads, native dialogs, tabs, network   |
+
+Lightpanda is a headless browser with no renderer — cheap to start, small in
+memory — so every `browser-automation` chain is headed by a
+`mcp__lightpanda__*` tool, with the `mcp__playwright__*` equivalent carrying
+no chain and therefore sorting into the fallback tier.
+
+`browser-visual` holds the capabilities lightpanda **cannot** provide at all.
+There is nothing to rank against, so those entries carry no chain and the
+PreToolUse hook stays silent on them — a screenshot call is never nudged.
+
+### The unavailability fallback is health-driven, not annotated
+
+"Use lightpanda first, playwright if unavailable" needs no `fallback_to`
+wiring. Both consumers filter on health:
+
+- `inject-tool-digest.py` skips non-`healthy` tools when building the digest.
+- `enforce-tool-registry.py::pick_alternatives` only offers `healthy`
+  alternatives.
+
+So if the lightpanda handshake fails, its tools drop out of the digest and
+stop being suggested — playwright becomes the visible head of
+`browser-automation` on its own, and playwright calls draw no nudge. Verify
+with a doctored manifest:
+
+```bash
+jq '(.tools | to_entries | map(if (.key|startswith("mcp__lightpanda__"))
+  then .value.health.state = "unhealthy" else . end) | from_entries) as $t | .tools = $t' \
+  ~/.claude/cache/tool-registry-manifest.json > /tmp/fakehome/.claude/cache/tool-registry-manifest.json
+echo '{"tool_name":"mcp__playwright__browser_navigate","tool_input":{}}' \
+  | HOME=/tmp/fakehome python3 hooks/enforce-tool-registry.py   # → no output
+```
+
+### Why the descriptions are overridden
+
+Lightpanda ships multi-paragraph tool descriptions (its `save` and `extract`
+entries run to hundreds of words). The digest prints
+`description` verbatim into every sub-agent's context, so
+`annotations.yaml` overrides each one with a single line. Niche lightpanda
+tools (`session_*`, `save`, `structuredData`, `nodeDetails`, `detectForms`,
+`scroll`, `getCookies`) are deliberately left un-annotated: with no
+category they stay fully callable but out of the digest and the nudge path,
+which keeps the injected digest to ~40 lines.
+
 ## How to add a new MCP server
 
 1. Register it in `mcp.json` (or `claude-settings.json::mcpServers`).
