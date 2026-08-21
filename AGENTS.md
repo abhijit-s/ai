@@ -147,6 +147,28 @@ See **Command Tool Order** at the top of this file.
 
 For complex multi-file discovery, spawn a sub-agent rather than writing shell loops.
 
+### Browser Automation — Lightpanda first, Playwright for pixels
+
+**Reach for `mcp__lightpanda__*` for anything that navigates, reads, scrapes, or clicks.** Lightpanda is a headless browser with **no renderer** — it starts in milliseconds and holds a fraction of Chromium's memory, so it is the default for the overwhelming majority of browser work.
+
+| Need                                    | Tool                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| Navigate to a URL                       | `mcp__lightpanda__goto`                                                   |
+| Read a page                             | `mcp__lightpanda__markdown` (scope with `selector`), `tree`, `html`       |
+| Pull structured data out               | `mcp__lightpanda__extract` (CSS-selector schema), `links`                 |
+| Click / type / hover / press            | `mcp__lightpanda__click`, `fill`, `hover`, `press`, `selectOption`        |
+| Wait for content                        | `mcp__lightpanda__waitForState` (`networkidle`), `waitForSelector`         |
+| Web search                              | `mcp__lightpanda__search`                                                 |
+| **Screenshot or any visual check**      | `mcp__playwright__browser_take_screenshot`                                |
+| **Viewport, drag/drop, uploads, tabs**  | `mcp__playwright__browser_resize`, `browser_drag`, `browser_file_upload`, `browser_tabs` |
+| **Native dialogs, network inspection**  | `mcp__playwright__browser_handle_dialog`, `browser_network_requests`      |
+
+**Lightpanda cannot render pixels.** It has no screenshot, no viewport, no tab model, no native dialog handling and no network interception. Those are Playwright's alone — go straight there, no apology needed. Anything design-, layout-, or visual-verification-shaped is Playwright work by definition.
+
+`mcp__playwright__*` is also the **fallback tier** for ordinary automation: if lightpanda is unavailable, use Playwright's equivalent and move on. That fallback is automatic — the tool registry marks a failed handshake `unhealthy` and stops advertising it, so the preference silently collapses to Playwright rather than blocking. The registry is the canonical source for this ordering (`hooks/tools/annotations.yaml`, categories `browser-automation` and `browser-visual`); this table is the human-facing summary.
+
+After a lightpanda session that is worth repeating, `mcp__lightpanda__save` distills it into a replayable agent script — cheaper than re-driving the browser next time.
+
 ### Git Worktree Hosting
 
 **Every worktree gets one home: `<repo>/worktrees/<slug>`.** Never a sibling directory next to the repo (`<repo>-wt-<slug>`, `/tmp/wt-N`, etc.) — those scatter across parent directories and are easy to lose track of.
@@ -274,6 +296,8 @@ For complex work spanning multiple sessions:
 ## Response Style
 
 **Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (e.g. ✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
+
+**🏁 is the universal "resolved" marker; unresolved states use other icons — never 🏁.** Attach 🏁 to anything done/resolved/closed: a fixed blocker, a completed task, a merged PR, a settled decision. Signal *unresolved* states with a different emoji instead — 🔴 open blocker, ⏳ in-progress / waiting, ⚠️ caution / needs-attention, ▶ next — and never put 🏁 on something still in flight. A red flag that has since been fixed therefore reads 🔴🏁 (was blocking, now closed) with a one-line note of how. The owner scans status by emoji, so 🏁 must mean "closed" unambiguously: never leave a resolved item marked only with an open-state icon, and never mark an in-flight item with 🏁.
 
 ## Vocabulary
 
