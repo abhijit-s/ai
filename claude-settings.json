@@ -1,12 +1,339 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "env": {
-    "OBSIDIAN_VAULT_PATH": "${HOME}/Data/Obsidian/Vault/obsidian-vault-abhi.io",
-    "HERDR_PANE_RENAME_DISABLE": "0"
-  },
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "effortLevel": "high",
+  "enableAllProjectMcpServers": true,
+  "enabledPlugins": {
+    "compound-engineering@compound-engineering-plugin": true,
+    "engineering-library@engineering-tools": true,
+    "frontend-design@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "knowledge-audit@engineering-tools": true,
+    "knowledge-capture@engineering-tools": true,
+    "memory-kit@memory-kit-marketplace": true,
+    "promote-to-canon@engineering-tools": true,
+    "ralph-loop@claude-plugins-official": true,
+    "ruby-lsp@claude-plugins-official": false,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": false,
+    "vault-librarian@ai": true
+  },
+  "env": {
+    "HERDR_PANE_RENAME_DISABLE": "0",
+    "OBSIDIAN_VAULT_PATH": "${HOME}/Data/Obsidian/Vault/obsidian-vault-abhi.io"
+  },
+  "extraKnownMarketplaces": {
+    "ai": {
+      "source": {
+        "repo": "abhijit-s/ai",
+        "source": "github"
+      }
+    },
+    "compound-engineering": {
+      "source": {
+        "repo": "EveryInc/compound-engineering-plugin",
+        "source": "github"
+      }
+    },
+    "engineering-tools": {
+      "source": {
+        "repo": "Easygo-Surge/engineering-tools",
+        "source": "github"
+      }
+    },
+    "memory-kit-marketplace": {
+      "source": {
+        "repo": "abhijit-s/memory-kit",
+        "source": "github"
+      }
+    }
+  },
+  "feedbackSurveyState": {
+    "lastShownTime": 1754059139990
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s info -q",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "~/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/audit-search-tools.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "mcp__fff__.*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/guard-memory-index-size.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/handle-expansion-postwrite.py",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "atuin hook claude-code",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "command": "atuin hook claude-code",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "~/.claude/hooks/guard-broad-git.sh",
+            "if": "Bash(git *)",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "mcp__.*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/pretool-stash-override.py",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "python3 ~/.claude/hooks/nudge-agent-tier.py",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Task|Agent"
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/nudge-read-conversion.py",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read"
+      },
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/block-gitops-branch-k8s-edit.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "atuin hook claude-code",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py",
+            "type": "command"
+          },
+          {
+            "command": "~/.claude/hooks/preload-search-tools.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "~/.claude/hooks/refresh-tool-registry.sh",
+            "timeout": 20,
+            "type": "command"
+          },
+          {
+            "command": "python3 ~/.claude/hooks/inject-vocab-sessionstart.py",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash ~/.claude/hooks/herdr-agent-state.sh session",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/a.salvi/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s done -q",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/inject-guidelines.py",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "python3 ~/.claude/hooks/inject-tool-digest.py",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "python3 ~/.claude/hooks/inject-agent-registry.py",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "~/.dotfiles/ai/hooks/tmux-rename-session.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "~/.dotfiles/ai/hooks/herdr-agent-name.sh",
+            "type": "command"
+          }
+        ]
+      }
+    ]
   },
   "permissions": {
     "allow": [
@@ -229,6 +556,10 @@
       "mcp__ynab__*",
       "mcp__pencil"
     ],
+    "ask": [
+      "Bash(gh pr comment:*)"
+    ],
+    "defaultMode": "auto",
     "deny": [
       "Bash(rm:-rf /*)",
       "Bash(rm:-rf /)",
@@ -244,300 +575,12 @@
       "Bash(psql:-c DROP TABLE:*)",
       "Bash(psql:-c TRUNCATE TABLE:*)",
       "Bash(psql:-c TRUNCATE:*)"
-    ],
-    "ask": [
-      "Bash(gh pr comment:*)"
-    ],
-    "defaultMode": "auto"
-  },
-  "enableAllProjectMcpServers": true,
-  "hooks": {
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s info -q"
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/skills/obsidian-second-brain/hooks/obsidian-bg-agent.sh",
-            "timeout": 10,
-            "async": true
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/audit-search-tools.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__fff__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/audit-search-tools.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/guard-memory-index-size.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/handle-expansion-postwrite.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/guard-broad-git.sh",
-            "if": "Bash(git *)",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/enforce-tool-registry.py",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Task|Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/pretool-stash-override.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/nudge-agent-tier.py",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/nudge-read-conversion.py",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/block-gitops-branch-k8s-edit.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/skills/obsidian-second-brain/hooks/load_vault_context.py"
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/preload-search-tools.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/refresh-tool-registry.sh",
-            "timeout": 20
-          },
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/inject-vocab-sessionstart.py",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/herdr-agent-state.sh session",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s done -q"
-          }
-        ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/inject-guidelines.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/inject-tool-digest.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/inject-agent-registry.py",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.dotfiles/ai/hooks/tmux-rename-session.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.dotfiles/ai/hooks/herdr-agent-name.sh"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "~/.dotfiles/ai/statusline.sh"
-  },
-  "enabledPlugins": {
-    "compound-engineering@compound-engineering-plugin": true,
-    "engineering-library@engineering-tools": true,
-    "frontend-design@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "knowledge-audit@engineering-tools": true,
-    "knowledge-capture@engineering-tools": true,
-    "memory-kit@memory-kit-marketplace": true,
-    "promote-to-canon@engineering-tools": true,
-    "ralph-loop@claude-plugins-official": true,
-    "ruby-lsp@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": false,
-    "vault-librarian@ai": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "ai": {
-      "source": {
-        "source": "github",
-        "repo": "abhijit-s/ai"
-      }
-    },
-    "compound-engineering": {
-      "source": {
-        "source": "github",
-        "repo": "EveryInc/compound-engineering-plugin"
-      }
-    },
-    "engineering-tools": {
-      "source": {
-        "source": "github",
-        "repo": "Easygo-Surge/engineering-tools"
-      }
-    },
-    "memory-kit-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "abhijit-s/memory-kit"
-      }
-    }
-  },
+  "showMessageTimestamps": true,
+  "skipAutoPermissionPrompt": true,
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
   "spinnerTipsOverride": {
     "tips": [
       "Reading your codebase...",
@@ -549,14 +592,10 @@
       "Exploring the architecture..."
     ]
   },
-  "effortLevel": "high",
-  "tui": "fullscreen",
-  "skipDangerousModePermissionPrompt": true,
-  "skipWorkflowUsageWarning": true,
+  "statusLine": {
+    "command": "~/.dotfiles/ai/statusline.sh",
+    "type": "command"
+  },
   "theme": "auto",
-  "showMessageTimestamps": true,
-  "skipAutoPermissionPrompt": true,
-  "feedbackSurveyState": {
-    "lastShownTime": 1754059139990
-  }
+  "tui": "fullscreen"
 }
