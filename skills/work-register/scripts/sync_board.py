@@ -686,6 +686,12 @@ def main() -> int:
                 # The checkbox belongs to the board, so keep whatever it says today.
                 if card.lstrip().startswith("- [x]"):
                     fresh = re.sub(r"^- \[ \]", "- [x]", fresh, count=1)
+                # So does an Obsidian block id (^abc123): the owner created it by copying
+                # a link to that card, and re-rendering must not break the link.
+                anchor = re.match(r"^[^\n]*?\s(\^[A-Za-z0-9-]+)\s*$", card.split("\n")[0])
+                if anchor and anchor.group(1) not in fresh:
+                    head, sep, tail = fresh.partition("\n")
+                    fresh = f"{head} {anchor.group(1)}{sep}{tail}"
                 if fresh != card:
                     cards[index] = fresh
                     changed += 1
