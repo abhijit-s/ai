@@ -17,15 +17,42 @@
 #
 # Track resolution lives HERE, not in the engine. The engine holds no vault path and reads
 # no memory-kit state; wiring one subsystem's per-conversation ledger to another's board is
-# glue, and glue belongs in the hook.
+# glue, and glue belongs in the hook. Glue still does not get to invent a vault location:
+# the ledger path is DERIVED from memory-kit's own per-machine corpus registry, which is
+# the component that owns it. A hook that assumed one would be silently wrong on any other
+# machine — and silently is the whole problem, since a wrong path is indistinguishable
+# from an untracked session.
 
 set -uo pipefail
 
 ENGINE="${HOME}/ai/skills/work-register/scripts/sync_board.py"
-# memory-kit's per-conversation track ledger. Explicit and overridable: it is the one
-# absolute path this hook knows, and a machine that keeps its vault elsewhere should be
-# able to say so without editing the script.
-WORK_REGISTER_TRACK_LEDGER="${WORK_REGISTER_TRACK_LEDGER:-$HOME/vaults/workspace/Memory/.track-ledger}"
+MEMORY_KIT_CONFIG="${MEMORY_KIT_CONFIG:-$HOME/.config/memory-kit/config.toml}"
+# Enough to orient a session, few enough to still read as scope rather than wallpaper.
+WORK_REGISTER_PULSE_CARDS="${WORK_REGISTER_PULSE_CARDS:-6}"
+
+# memory-kit's per-conversation track ledger, resolved the way memory-kit resolves it:
+# the default corpus's `data_root` + `memory_dir`. An explicit override still wins, for a
+# machine whose ledger sits somewhere its registry does not describe. No registry means no
+# tracks to read, so an empty answer is correct rather than a fallback worth guessing at.
+resolve_ledger() {
+  [ -r "$MEMORY_KIT_CONFIG" ] || return 0
+  timeout 5 python3 - "$MEMORY_KIT_CONFIG" <<'PY' 2>/dev/null
+import sys, tomllib
+from pathlib import Path
+
+try:
+    with open(sys.argv[1], "rb") as handle:
+        cfg = tomllib.load(handle)
+except Exception:
+    sys.exit(0)
+corpus = cfg.get("corpus", {}).get(cfg.get("default_corpus"), {})
+root = corpus.get("data_root")
+if root:
+    print(Path(root) / corpus.get("memory_dir", "Memory") / ".track-ledger")
+PY
+}
+
+WORK_REGISTER_TRACK_LEDGER="${WORK_REGISTER_TRACK_LEDGER:-$(resolve_ledger)}"
 # Enough to orient a session, few enough to still read as scope rather than wallpaper.
 WORK_REGISTER_PULSE_CARDS="${WORK_REGISTER_PULSE_CARDS:-6}"
 
