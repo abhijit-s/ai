@@ -388,7 +388,10 @@ def render_card(cfg: dict, item: Item) -> str:
     # The column already encodes the lane, and a marker on the card face goes stale the
     # moment the card is dragged elsewhere — so it is off by default.
     show_marker = card.get("show_marker", False)
-    icons = [icon for icon in item.icons if show_marker or icon != item.marker]
+    # Drop an icon identical to the marker ONLY when the marker is actually rendered —
+    # otherwise there is nothing to duplicate, and stripping it can leave a card with no
+    # icon at all (a 💬 item whose only vocabulary match is also 💬).
+    icons = [icon for icon in item.icons if not show_marker or icon != item.marker]
     rendered = card["icon_separator"].join(icons)
     if rendered:
         rendered += card["icon_suffix"]
