@@ -50,8 +50,11 @@ LEDGER_NAME = ".sync-state.json"
 # Field ownership — the whole sync contract in one table. No field has two owners, so
 # there is never a conflict to resolve:
 #
-#   existence · text · grouping  →  day file owns  (board never invents or edits a card)
-#   status: column · checkbox    →  board owns     (--reconcile stamps it back)
+#   existence · text · grouping · track  →  day file owns  (board never invents a card)
+#   status: column · checkbox            →  board owns     (--reconcile stamps it back)
+#
+# `track` sits on the day-file side with text and grouping, which is why it needs no
+# reconcile path: a declaration the board cannot change is a declaration that cannot drift.
 #
 # The ledger records every id ever placed, which is what lets a DELETED card stay deleted
 # instead of being resurrected on the next sync.
@@ -64,6 +67,11 @@ CONTINUATION = re.compile(r"^\s+\S")
 FRONTMATTER = re.compile(r"\A---\n(.*?\n)---\n", re.DOTALL)
 SETTINGS_BLOCK = re.compile(r"\n*%%\s*kanban:settings.*\Z", re.DOTALL)
 ORDINAL = re.compile(r"^[0-9️⃣\s]+")
+# `::name` declares the memory-kit track a card belongs to. The token must stand alone:
+# the leading guard is what keeps it out of a URL — `https://…` and `http://[::1]/` both
+# carry a non-space character immediately before the colons, so neither matches. A token
+# that breaks the shape (uppercase, leading hyphen, over-length) simply is not one.
+TRACK_TOKEN = re.compile(r"(?<!\S)::([a-z0-9][a-z0-9-]{0,63})(?!\S)")
 
 DEFAULTS: dict = {
     "schema_version": SCHEMA_VERSION,
@@ -83,12 +91,18 @@ DEFAULTS: dict = {
         "frontmatter": {"kanban-plugin": "board"},
     },
     "tag_rules": [],
+    "track_rules": [],
     "card": {
         "template": "- [{check}] {marker}{icons}{text}\n\t\n\t{meta}\n\t{id_comment}",
-        "meta": "\U0001f4c5 [[{date}]] · \U0001f9ed {group}{tags}",
+        "meta": "\U0001f4c5 [[{date}]] · \U0001f9ed {group}{track}{tags}",
         "icon_separator": "",
         "icon_suffix": " ",
         "max_icons": 3,
+        # Collapsing to nothing when there is no track is grammar; the emoji and the
+        # separator that lead the segment are vocabulary, so both live in one format
+        # string a corpus can restyle without touching code.
+        "track_format": " · \U0001f9f5 {track}",
+        "track_tag": "#track/{track}",
     },
     "log": {
         "added": "➕",
@@ -143,6 +157,7 @@ class Item:
     done: bool
     tags: list[str] = field(default_factory=list)
     icons: list[str] = field(default_factory=list)
+    track: str = ""
 
 
 # --- Configuration resolution -----------------------------------------------------
@@ -302,6 +317,31 @@ def classify(cfg: dict, haystack: str) -> tuple[list[str], list[str]]:
     return tags, icons[: cfg["card"]["max_icons"]]
 
 
+def split_track(text: str) -> tuple[str, str]:
+    """Peel a `::name` declaration off a line: (track, text without the token).
+
+    The token is a declaration, not prose, so it never reaches the card face. Collapsing
+    the whitespace afterwards is what keeps a mid-sentence token from leaving a gap.
+    """
+    found = TRACK_TOKEN.search(text)
+    if not found:
+        return "", text
+    remainder = TRACK_TOKEN.sub("", text, count=1)
+    return found.group(1), re.sub(r"\s{2,}", " ", remainder).strip()
+
+
+def infer_track(cfg: dict, haystack: str) -> str:
+    """Guess a track from the corpus vocabulary. FIRST match wins, unlike tag_rules.
+
+    A card carries several tags because it touches several concerns, but it belongs to one
+    track — so the rules are an ordered decision, not an accumulation.
+    """
+    for rule in cfg.get("track_rules", []):
+        if re.search(rule["pattern"], haystack, re.IGNORECASE):
+            return rule["track"]
+    return ""
+
+
 def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tuple[list[Item], bool]:
     """Parse one day file, minting ids for un-stamped items. Returns (items, rewritten).
 
@@ -323,6 +363,7 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
 
     items: list[Item] = []
     group = ""
+    section_track = ""
     rewritten = False
     index = 0
 
@@ -331,6 +372,8 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
         heading = HEADING.match(line)
         if heading:
             raw = heading.group(1).strip()
+            # Peel the token before the ordinal, so a heading may carry either or both.
+            section_track, raw = split_track(raw)
             group = ORDINAL.sub("", raw).strip() or raw
             index += 1
             continue
@@ -360,7 +403,11 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
 
         text = re.sub(r"\s{2,}", " ", finder.sub("", body).strip())
         marker, text = split_marker(cfg, text)
+        item_track, text = split_track(text)
         tags, icons = classify(cfg, f"{group} {text}")
+        # An explicit declaration always beats a guess, and the item's own beats the one
+        # it inherits from its section — the same item-over-section binding --probe uses.
+        track = item_track or section_track or infer_track(cfg, f"{group} {text}")
         items.append(
             Item(
                 item_id=item_id,
@@ -371,6 +418,7 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
                 done=check.lower() == "x",
                 tags=tags,
                 icons=icons,
+                track=track,
             )
         )
         index = probe
@@ -383,8 +431,16 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
 # --- Board read / render ----------------------------------------------------------
 def render_card(cfg: dict, item: Item) -> str:
     card = cfg["card"]
-    tags = (" " + " ".join(item.tags)) if item.tags else ""
-    meta = card["meta"].format(date=item.date, group=item.group or item.date, tags=tags)
+    # The track is a meta segment PLUS a tag: the segment reads on the card face, the tag
+    # is what the Kanban plugin can filter and group by. It claims no icon slot, so
+    # declaring a track never costs a card one of its vocabulary icons.
+    track = card.get("track_format", "").format(track=item.track) if item.track else ""
+    track_tag = card.get("track_tag", "").format(track=item.track) if item.track else ""
+    all_tags = item.tags + ([track_tag] if track_tag else [])
+    tags = (" " + " ".join(all_tags)) if all_tags else ""
+    meta = card["meta"].format(
+        date=item.date, group=item.group or item.date, track=track, tags=tags
+    )
     # The column already encodes the lane, and a marker on the card face goes stale the
     # moment the card is dragged elsewhere — so it is off by default.
     show_marker = card.get("show_marker", False)
@@ -835,7 +891,9 @@ def main() -> int:
         registers = cfg.get("register") or {}
         print(f"{log['register']} registers: {', '.join(sorted(registers)) or '(none)'}")
         print(f"   default: {cfg.get('default_register') or '(unset)'} · resolved: {name}")
-        print(f"   lanes: {len(cfg['board'].get('lanes', []))} · vocabulary rules: {len(cfg.get('tag_rules', []))}")
+        print(f"   lanes: {len(cfg['board'].get('lanes', []))}"
+              f" · vocabulary rules: {len(cfg.get('tag_rules', []))}"
+              f" · track rules: {len(cfg.get('track_rules', []))}")
         return 0
 
     register_dir, board_path = register_paths(cfg, register)
