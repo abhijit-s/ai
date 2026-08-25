@@ -24,7 +24,19 @@ Shape:
 - **Own agents** — a triage agent that reads the board plus the day files and proposes
   the next day's register; a groomer that spots cards stuck in one column for N days.
 
-## T2 — Feed the register from live sessions (hooks)
+## T2 — Feed the register from what actually happened
+
+> **Corrected 2026-08-25, and partly built.** This item originally prescribed a
+> `SessionEnd` hook. Measured against August's ledgers, **SessionEnd fails to fire ~44% of
+> the time** here (56 crash-recovered stubs vs 70 clean compiles) — what makes memory-kit
+> reliable is the nightly sweep repairing from checkpoints, not the event. So: read the
+> *store*, never trust the event.
+>
+> **Built:** `--probe` (resolve the references cards already cite — deterministic, no
+> hook, no session data) and `--status` (staleness verdict). See SKILL.md.
+>
+> **Still open:** ledger replay, below — the half that catches work leaving no pull
+> request, which is how three canon research consolidations went unrecorded in one week.
 
 **Want:** the board reflects the current state of affairs **without being hand-driven** —
 today it only knows what a day file says, so it goes stale the moment work happens outside

@@ -78,6 +78,8 @@ sync_board.py                # add new cards; never moves an existing one
 sync_board.py --move ID=COL  # relocate a card + reconcile its day file
 sync_board.py --reconcile    # stamp board status back onto the day files (text untouched)
 sync_board.py --refresh      # re-render card text from the day files; KEEPS placement
+sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
+sync_board.py --status       # register health; --brief prints only the verdict line
 sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
 sync_board.py --dry-run      # show what would happen, write nothing
 sync_board.py --show-config  # resolved config layers
@@ -113,6 +115,39 @@ checkbox when it crosses the Done boundary, **and reconciles the day file in the
 run** — so a move made in chat and a move made by dragging in Obsidian end up in exactly
 the same state. Use this when the user says "mark X done" or "X is blocked now"; use
 `--reconcile` when they have already dragged cards in the UI.
+
+## Keeping the board honest — `--probe` and `--status`
+
+A board only knows what a capture told it, so it drifts silently: cards sit in a lane
+while the work behind them finishes elsewhere. These two verbs close that without a hook.
+
+**`--probe`** resolves the references cards already cite — `app#733`, `surge-bot#356`,
+canon plan paths — and reports what they say *now*. A merged pull request is a fact, so
+this needs no session data and no hook. **It proposes and never applies**, then prints the
+exact `--move` line to accept. Status is the board's field; a probe that moved cards would
+be taking a field it does not own.
+
+Binding matters, and it is the difference between a useful proposal and a wrong one:
+
+| Binding | Meaning | Probe behaviour |
+|---|---|---|
+| **item-bound** | the reference is in the card's own text | terminal → **proposes** a move |
+| **section-bound** | it is in the group's shared context paragraph | terminal → **advisory only** |
+
+A card may cite a merged pull request as *background* ("found while merging #733") rather
+than as the thing that closes it. Proposing Done there would be wrong, so section-bound
+findings are surfaced for review instead.
+
+**`--status`** reports register health — last capture, lane counts, cards sitting past
+`stale_days`. `--brief` prints one verdict line, suitable for a SessionStart nudge:
+
+```
+⚠️ work-register [abhi]: last capture 4d ago · 10 card(s) stale >3d
+```
+
+Offer `--probe` when the user asks what's still true, takes stock, or has been away.
+An unresolved reference (offline, unauthenticated, repo moved) is reported as **unknown**,
+never as done.
 
 ## Configuration (memory-kit philosophy)
 

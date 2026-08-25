@@ -21,6 +21,8 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py                # add cards the board has not seen; never moves one
     sync_board.py --reconcile    # board status (column + checkbox) → day files
     sync_board.py --move ID=COLUMN   # relocate a card, then reconcile the day file
+    sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
+    sync_board.py --status       # register health: last capture, stale lanes
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
@@ -31,11 +33,13 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import subprocess
 import os
 import re
 import sys
 import tomllib
 from dataclasses import dataclass, field
+from datetime import date as _date, datetime
 from pathlib import Path
 
 SCHEMA_VERSION = 1
@@ -100,6 +104,29 @@ DEFAULTS: dict = {
         "deleted": "\U0001f5d1️",
         "moved": "\U0001f446",
         "refreshed": "\U0001f504",
+        "probe": "\U0001f50e",
+        "proposal": "\U0001f4ec",
+        "ok": "✅",
+        "warn": "⚠️",
+        "unresolved": "❔",
+    },
+    "probe": {
+        # repo shorthand -> owner/repo, so a card may cite `app#733` not the full path.
+        "repos": {},
+        # frontmatter fields on a canon doc that answer "is this finished?", and the
+        # values that count as finished.
+        "readiness_fields": ["artifact_readiness", "status"],
+        "terminal_readiness": ["implemented", "shipped", "complete", "superseded", "withdrawn"],
+        # column a card is proposed for when its reference resolves terminal.
+        "propose_column": None,  # defaults to done_column
+        # columns whose cards are not probed (already finished / deliberately idle).
+        "skip_columns": [],
+    },
+    "status": {
+        "stale_days": 3,
+        "capture_gap_days": 2,
+        # lanes where sitting a long time is meaningful (Done/Parked are not).
+        "watch_columns": [],
     },
     "kanban": {"settings": '{"kanban-plugin":"board","show-checkboxes":true}'},
     "paths": {"register_dir": "Register", "board": "WORK-REGISTER.md"},
@@ -544,6 +571,181 @@ def move_card(cfg: dict, columns: dict[str, list[str]], item_id: str, target: st
     return origin
 
 
+
+# --- Probe: resolve the references a card cites, and report what they say ----------
+#
+# The register already points at reality — cards cite `app#733`, `surge-bot#356`, canon
+# plan paths. Probing those references needs no session data and no hook, and it is
+# deterministic: a merged pull request is a fact, not an inference.
+#
+# It PROPOSES and never applies. Status is the board's field (see the ownership table at
+# the top of this file), so a probe that moved cards would be taking a field it does not
+# own — and a board that rearranges itself is one the owner stops trusting.
+
+ISSUE_REF = re.compile(r"\b([a-z][\w.-]*)#(\d+)\b")
+CANON_REF = re.compile(r"\b(\d{2}_[a-z_]+/[\w./-]+\.md)\b")
+FM_FIELD = re.compile(r"^(\w+):\s*(.+?)\s*$", re.M)
+
+
+def parse_day_sections(path: Path, date: str, prefix: str) -> list[dict]:
+    """Split a day file into sections: heading, the ids under it, and its prose.
+
+    A reference in an item's own text binds to that card (strong). One in the section's
+    surrounding context paragraph binds only loosely (weak) — it is shared by every card
+    under the heading, so it is reported as advisory rather than driving a proposal.
+    """
+    finder = id_pattern(prefix)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    sections: list[dict] = []
+    current = {"group": "", "items": [], "prose": []}
+
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        heading = HEADING.match(line)
+        if heading:
+            if current["items"] or current["prose"]:
+                sections.append(current)
+            raw = heading.group(1).strip()
+            current = {"group": ORDINAL.sub("", raw).strip() or raw, "items": [], "prose": []}
+            index += 1
+            continue
+
+        match = ITEM.match(line)
+        if match:
+            body = match.group(3)
+            probe = index + 1
+            while probe < len(lines) and CONTINUATION.match(lines[probe]) and not ITEM.match(lines[probe]):
+                body += " " + lines[probe].strip()
+                probe += 1
+            found = finder.search(body)
+            if found:
+                current["items"].append({"id": found.group(1), "text": finder.sub("", body).strip()})
+            index = probe
+            continue
+
+        current["prose"].append(line)
+        index += 1
+
+    if current["items"] or current["prose"]:
+        sections.append(current)
+    for section in sections:
+        section["prose"] = "\n".join(section["prose"])
+        section["date"] = date
+    return sections
+
+
+def extract_refs(cfg: dict, text: str) -> list[tuple]:
+    """Pull (kind, key) references out of prose. Unknown repo shorthands are ignored."""
+    repos = cfg["probe"]["repos"]
+    refs: list[tuple] = []
+    for shorthand, number in ISSUE_REF.findall(text):
+        if shorthand in repos:
+            refs.append(("issue", f"{repos[shorthand]}#{number}"))
+    for path in CANON_REF.findall(text):
+        refs.append(("canon", path))
+    return list(dict.fromkeys(refs))
+
+
+def resolve_issue(ref: str, cache: dict) -> dict:
+    """Ask GitHub what an issue or pull request is doing now. Degrades to unresolved."""
+    if ref in cache:
+        return cache[ref]
+    repo, number = ref.split("#")
+    try:
+        out = subprocess.run(
+            ["gh", "api", f"repos/{repo}/issues/{number}",
+             "--jq", "{state:.state, merged:(.pull_request.merged_at // null), "
+                     "is_pr:(.pull_request != null), title:.title}"],
+            capture_output=True, text=True, timeout=25,
+        )
+        if out.returncode != 0:
+            raise RuntimeError(out.stderr.strip()[:120] or "gh failed")
+        data = json.loads(out.stdout)
+    except Exception as exc:  # offline, unauthenticated, renamed repo — all non-fatal
+        result = {"resolved": False, "detail": str(exc)[:100]}
+        cache[ref] = result
+        return result
+
+    if data.get("merged"):
+        state, terminal = "MERGED", True
+    elif data["state"] == "closed":
+        state, terminal = "CLOSED", True
+    else:
+        state, terminal = "OPEN", False
+    result = {
+        "resolved": True, "terminal": terminal, "state": state,
+        "kind": "pull request" if data["is_pr"] else "issue", "title": data["title"],
+    }
+    cache[ref] = result
+    return result
+
+
+def resolve_canon(cfg: dict, rel: str, cache: dict) -> dict:
+    """Read a canon doc's readiness frontmatter. Terminal values are config, not code."""
+    if rel in cache:
+        return cache[rel]
+    roots = [Path(r).expanduser() for r in cfg["probe"].get("canon_roots", [])]
+    target = next((root / rel for root in roots if (root / rel).is_file()), None)
+    if target is None:
+        result = {"resolved": False, "detail": "not found under any canon root"}
+        cache[rel] = result
+        return result
+
+    head = target.read_text(encoding="utf-8")[:4000]
+    fm = FRONTMATTER.match(head)
+    fields = dict(FM_FIELD.findall(fm.group(1))) if fm else {}
+    terminal_values = {v.lower() for v in cfg["probe"]["terminal_readiness"]}
+    for name in cfg["probe"]["readiness_fields"]:
+        value = fields.get(name)
+        if value:
+            result = {
+                "resolved": True, "terminal": value.strip().lower() in terminal_values,
+                "state": f"{name}={value.strip()}", "kind": "canon doc", "title": rel,
+            }
+            cache[rel] = result
+            return result
+    result = {"resolved": False, "detail": "no readiness field"}
+    cache[rel] = result
+    return result
+
+
+def probe_cards(cfg: dict, day_files: list, placement: dict) -> list[dict]:
+    """For every open card, resolve what its references currently say."""
+    prefix = cfg["ids"]["prefix"]
+    skip = set(cfg["probe"].get("skip_columns") or []) | {cfg["board"]["done_column"]}
+    cache: dict = {}
+    findings: list[dict] = []
+
+    for path in day_files:
+        for section in parse_day_sections(path, path.stem, prefix):
+            weak = extract_refs(cfg, section["prose"])
+            for item in section["items"]:
+                column = placement.get(item["id"])
+                if column is None or column in skip:
+                    continue
+                strong = extract_refs(cfg, item["text"])
+                resolved = []
+                for kind, key in strong or weak:
+                    info = resolve_issue(key, cache) if kind == "issue" else resolve_canon(cfg, key, cache)
+                    resolved.append({"ref": key, "binding": "item" if strong else "section", **info})
+                if resolved:
+                    findings.append({
+                        "id": item["id"], "column": column, "text": item["text"],
+                        "date": section["date"], "refs": resolved,
+                    })
+    return findings
+
+
+def days_since(stamp: str | None) -> int | None:
+    if not stamp:
+        return None
+    try:
+        return (_date.today() - _date.fromisoformat(stamp[:10])).days
+    except ValueError:
+        return None
+
+
 def render_board(cfg: dict, columns: dict[str, list[str]]) -> str:
     out = ["---"]
     out += [f"{key}: {value}" for key, value in cfg["board"]["frontmatter"].items()]
@@ -574,6 +776,20 @@ def main() -> int:
         metavar="ID=COLUMN",
         help="move a card to a column, e.g. --move 20260821-04='in progress' (repeatable). "
         "COLUMN matches on substring, so the emoji is optional",
+    )
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="resolve the references open cards cite (pull requests, issues, canon docs) "
+        "and PROPOSE status changes; never moves a card",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="report register health: last capture, lane counts, cards stale in a lane",
+    )
+    parser.add_argument(
+        "--brief", action="store_true", help="with --status, print only the verdict line"
     )
     parser.add_argument(
         "--refresh",
@@ -654,7 +870,9 @@ def main() -> int:
             return 0
         board_path.write_text(render_board(cfg, columns), encoding="utf-8")
         for item_id, _, target in moved:
-            ledger["placed"].setdefault(item_id, {})["column"] = target
+            entry = ledger["placed"].setdefault(item_id, {})
+            entry["column"] = target
+            entry["since"] = datetime.now().astimezone().date().isoformat()
         save_ledger(ledger_path, ledger)
         # A move IS a status change, so carry it straight back to the day files.
         status = board_status(cfg, columns)
@@ -662,6 +880,96 @@ def main() -> int:
             len(reconcile_day_file(cfg, path, status, mutate=True)) for path in day_files
         )
         print(f"{log['done']} {len(moved)} move(s) · {touched} day-file line(s) reconciled")
+        return 0
+
+    # --- status: is the register still telling the truth? ------------------------
+    if args.status:
+        placement = board_status(cfg, columns)
+        watch = set(cfg["status"].get("watch_columns") or []) or (
+            set(cfg["board"]["column_order"])
+            - {cfg["board"]["done_column"], cfg["probe"].get("propose_column") or ""}
+        )
+        last_capture = day_files[-1].stem if day_files else None
+        capture_age = days_since(last_capture)
+
+        stale = []
+        for item_id, column in placement.items():
+            if column not in watch:
+                continue
+            entry = ledger["placed"].get(item_id, {})
+            age = days_since(entry.get("since") or entry.get("day") or item_id[:8] and
+                             f"{item_id[:4]}-{item_id[4:6]}-{item_id[6:8]}")
+            if age is not None and age >= cfg["status"]["stale_days"]:
+                stale.append((age, item_id, column))
+        stale.sort(reverse=True)
+
+        problems = []
+        if capture_age is not None and capture_age >= cfg["status"]["capture_gap_days"]:
+            problems.append(f"last capture {capture_age}d ago")
+        if stale:
+            problems.append(f"{len(stale)} card(s) stale >{cfg['status']['stale_days']}d")
+        verdict = (
+            f"{log['warn']} work-register [{name}]: " + " · ".join(problems)
+            if problems else f"{log['ok']} work-register [{name}]: current"
+        )
+        print(verdict)
+        if args.brief:
+            return 0
+        counts = {c: len(v) for c, v in columns.items() if v}
+        print("   " + " · ".join(f"{c} {n}" for c, n in counts.items()))
+        for age, item_id, column in stale[:10]:
+            print(f"   {log['warn']} {item_id} — {age}d in {column}")
+        return 0
+
+    # --- probe: what do the cards' own references say now? -----------------------
+    if args.probe:
+        placement = board_status(cfg, columns)
+        findings = probe_cards(cfg, day_files, placement)
+        target = cfg["probe"].get("propose_column") or cfg["board"]["done_column"]
+        proposals, advisory, unresolved = [], [], []
+
+        print(f"{log['probe']} probing {len(findings)} open card(s) with references")
+        for finding in findings:
+            terminal = [r for r in finding["refs"] if r.get("resolved") and r.get("terminal")]
+            missing = [r for r in finding["refs"] if not r.get("resolved")]
+            for ref in finding["refs"]:
+                if ref.get("resolved"):
+                    mark = log["proposal"] if ref["terminal"] else log["ok"]
+                    print(f"   {mark} {finding['id']} → {ref['ref']} {ref['state']}"
+                          f" ({ref['kind']}, {ref['binding']}-bound)")
+                else:
+                    print(f"   {log['unresolved']} {finding['id']} → {ref['ref']}: {ref['detail']}")
+            item_bound = [r for r in terminal if r["binding"] == "item"]
+            if item_bound:
+                proposals.append((finding, item_bound))
+            elif terminal:
+                # Terminal, but the reference came from the section's shared context
+                # rather than the item itself — it may be cited as background, not as the
+                # thing that closes the card. Surface it; do not propose on it.
+                advisory.append((finding, terminal))
+            unresolved.extend(missing)
+
+        print()
+        if not proposals:
+            print(f"{log['ok']} no proposals — every item-bound reference is still open")
+        else:
+            print(f"{log['proposal']} {len(proposals)} proposal(s) — nothing has been moved:")
+            for finding, terminal in proposals:
+                why = ", ".join(f"{r['ref']} {r['state']}" for r in terminal)
+                print(f"   {finding['id']}  [{finding['column']}] → {target}")
+                print(f"      {finding['text'][:76]}")
+                print(f"      because: {why}")
+            args_line = " ".join(f'--move {f["id"]}="{target}"' for f, _ in proposals)
+            print(f"\n   apply with:\n   sync_board.py {args_line}")
+        if advisory:
+            print(f"\n{log['warn']} {len(advisory)} card(s) cite a FINISHED reference in their "
+                  "section context, not in the item itself — review, do not assume:")
+            for finding, terminal in advisory:
+                why = ", ".join(f"{r['ref']} {r['state']}" for r in terminal)
+                print(f"   {finding['id']}  [{finding['column']}]  {why}")
+        if unresolved:
+            print(f"\n{log['unresolved']} {len(unresolved)} reference(s) could not be resolved "
+                  "(offline, unauthenticated, or moved) — treat as unknown, not as done")
         return 0
 
     # --- refresh: day-file text → existing cards, placement preserved ------------
@@ -772,6 +1080,7 @@ def main() -> int:
         ledger["placed"][item.item_id] = {
             "day": item.date,
             "column": lane_for(cfg, item.marker, item.done),
+            "since": datetime.now().astimezone().date().isoformat(),
         }
     save_ledger(ledger_path, ledger)
 
