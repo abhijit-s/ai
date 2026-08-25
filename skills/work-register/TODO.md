@@ -9,11 +9,26 @@ Shape:
 
 - **Plugin package** — `plugins/work-register/` with its own `skills/`, `hooks/`, and
   agents, installed via the marketplace rather than living loose in `~/ai/skills/`.
-- **Vault-agnostic** — already half-true: the engine holds no vault path, and a register
-  is declared by `[register.<name>]` + a `.work-register.toml` at its root. What is
-  missing is an `init` verb that scaffolds those two files for an arbitrary vault, and
-  removal of the `General/Tracking/*` layout assumption from the docs (it is config
-  today, but every example hardcodes it).
+- **Vault-agnostic** — **done for the standing-up problem.** `--init PATH` scaffolds a
+  register in any vault: a thin, commented `.work-register.toml` at the root, a
+  `[register.<name>]` binding merged into the per-machine base config, and the day-file
+  directory with a README. Layout defaults are neutral (`Register/` and
+  `WORK-REGISTER.md` at the vault root), overridable with `--register-dir` / `--board`.
+  It writes no board — the first sync renders it. It refuses rather than overwrites, and
+  the base-config merge is textual (comments survive), backed up, re-parsed and rolled
+  back on loss. It finishes by resolving the register it wrote, so a success proves
+  itself. `--dry-run` prints all three writes and touches nothing.
+
+  The docs never actually hardcoded `General/Tracking/*` — that part of this item was
+  stale. What did leak was the *lane vocabulary*: SKILL.md presented one vault's
+  eight-marker flow as the shape. It now marks the three a fresh register starts with and
+  points at `[[board.lanes]]` as the authority.
+
+  **Residual, small:** the existing `abhi` contract declares `[register.abhi]` with an
+  absolute `data_root` inside the vault file. It works (the base config declares the same
+  values), but it puts a per-machine path in a vault-committed file, which is exactly what
+  a clone of that vault onto another machine would get wrong. `--init` deliberately does
+  not write that table; the old contract could drop it.
 - **Own tools** — expose the verbs (`capture`, `sync`, `move`, `reconcile`, `rebuild`,
   `status`) as callable tools instead of a bash invocation, so an agent can move the board
   without shelling out.

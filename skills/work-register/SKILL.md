@@ -31,24 +31,28 @@ Write `<register_dir>/YYYY-MM-DD.md`. Keep the user's own priority order and gro
 if they dictated `1️⃣ … 2️⃣ …`, those become the `##` headings, which become the card's
 `🧭 group`.
 
-Each item is a checkbox line whose **leading marker routes it to a column**:
+Each item is a checkbox line whose **leading marker routes it to a column**. The marker set
+is **that vault's declared vocabulary, not the shape** — the table below is the widest one
+in use, and a freshly initialised vault starts with the three marked ⭑:
 
 | Marker | Lands in | Use for |
 |---|---|---|
 | `📥` | Wishlist | Captured, not committed |
 | `🔍` | Exploring | Investigate before committing |
 | `💬` | Deciding | Needs a decision or a conversation |
-| `▶` | Next | Committed, ready to move |
-| `⏳` | In progress | Started |
-| `🔴` | Blocked | Stalled on someone or something else |
+| ⭑ `▶` | Next | Committed, ready to move |
+| ⭑ `⏳` | In progress | Started |
+| ⭑ `🔴` | Blocked | Stalled on someone or something else |
 | `🅿️` | Parked | Deliberately deferred |
 | `- [x]` | Done | Complete (overrides the marker) |
 
-The columns read left-to-right as a flow: capture → understand → decide → commit → do →
-done, with Blocked and Parked as the two ways work leaves the flow unfinished.
+Whatever the set, the columns read left-to-right as a flow: capture → understand → decide
+→ commit → do → done, with Blocked and Parked as the two ways work leaves the flow
+unfinished.
 
-The exact marker → column map is config, not code — read it from the register root's
-`.work-register.toml` rather than trusting this table if they disagree.
+**Read the map, do not trust this table.** `[[board.lanes]]` in the register root's
+`.work-register.toml` is the authority; an unrecognised marker is not an error, it just
+falls to `default_column`. `--show-config` reports how many lanes are declared.
 
 **Rules for the body:**
 
@@ -81,6 +85,7 @@ sync_board.py --refresh      # re-render card text from the day files; KEEPS pla
 sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
 sync_board.py --status       # register health; --brief prints only the verdict line
 sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
+sync_board.py --init PATH    # stand a register up in a vault that has never had one
 sync_board.py --dry-run      # show what would happen, write nothing
 sync_board.py --show-config  # resolved config layers
 sync_board.py --register <name> --since 2026-08-01
@@ -203,8 +208,49 @@ new lane, a new tag/icon, or a different card shape, **edit the register root's
 `.work-register.toml` — never the engine.** Grammar (item syntax, id format) is logic and
 stays in code.
 
-Adding a register: declare `[register.<name>]` with `data_root` in the per-machine config,
-then drop a `.work-register.toml` at that root for its conventions.
+### Standing a register up in a new vault — `--init`
+
+A register is nothing but a `[register.<name>]` binding plus a marker at its root, so
+`--init` writes those rather than making you know the shape by heart:
+
+```bash
+sync_board.py --init ~/vaults/notes                      # name slugged from the basename
+sync_board.py --init ~/vaults/notes --name notes         # or say it outright
+sync_board.py --init ~/vaults/notes --register-dir Journal --board Kanban/BOARD.md
+sync_board.py --init ~/vaults/notes --dry-run            # print the three writes, touch nothing
+```
+
+It writes exactly three things:
+
+| Written | Role |
+|---|---|
+| `PATH/.work-register.toml` | the corpus contract — discovery marker plus this vault's conventions |
+| `[register.<name>]` in `~/.config/work-register/config.toml` | the per-machine path binding, **merged** into whatever is already there |
+| `PATH/<register_dir>/` + a `README.md` | the day-file directory and its conventions |
+
+And deliberately **no board**: the board is derived, so the first `sync` renders it. An
+empty one scaffolded here would be a second source of truth for one run.
+
+**Defaults are neutral on purpose.** `Register/` and `WORK-REGISTER.md` at the vault root —
+no assumption about where in a vault a register belongs. A vault that wants it filed
+somewhere deeper says so with `--register-dir` / `--board`, and those land in the binding.
+
+The contract it writes is **short**, because every key already has a code default. The one
+thing it must declare is the lane markers, since a marker vocabulary is a choice the engine
+cannot make: with no lane declared, every unticked item falls to `default_column`. Adding a
+tag rule, a track rule or a fourth lane is a commented example in the file.
+
+**It refuses rather than overwrites.** An existing `.work-register.toml`, or a name the base
+config already declares, is a hard stop with a non-zero exit — pass `--name` for a second
+register at a different root. The base-config merge is textual, so every comment in that
+file survives; it is backed up first, re-parsed afterwards, and rolled back if anything that
+was there before moved. `default_register` is set only when it is currently unset.
+
+`--init` finishes by resolving the register it just wrote and printing what the engine
+actually sees — layers, paths, lane and rule counts. A successful init proves itself.
+
+To add a register **by hand** instead: declare `[register.<name>]` with `data_root` in the
+per-machine config, then drop a `.work-register.toml` at that root for its conventions.
 
 ## Anti-patterns
 
@@ -219,6 +265,8 @@ then drop a `.work-register.toml` at that root for its conventions.
 | Guess why a card exists from its face | `--show ID` — the day file holds the reasoning |
 | Restate track status in the register | Link to `Memory/auto/*` / `RESUME.md` |
 | Hardcode a vault path in the engine or skill | Read it from config |
+| Hand-write the binding and the marker for a new vault | `--init PATH` |
+| Copy an existing vault's 240-line contract into a new one | `--init` writes the thin one; defaults cover the rest |
 | Add a tag rule in Python | Add `[[tag_rules]]` to the corpus config |
 | Carry an undated claim from memory | Stamp "as of <date> — re-verify" |
 | Write a bare `BC-5` / `U4` on first use | Attach a slug |

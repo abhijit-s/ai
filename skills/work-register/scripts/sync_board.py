@@ -25,6 +25,7 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --status       # register health: last capture, stale lanes
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
+    sync_board.py --init PATH    # stand a register up in a vault that has never had one
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
 
 Read surface — the two verbs that return cards rather than acting on them. Every verb
@@ -103,7 +104,14 @@ DEFAULTS: dict = {
     "track_rules": [],
     "card": {
         "template": "- [{check}] {marker}{icons}{text}\n\t\n\t{meta}\n\t{id_comment}",
-        "meta": "\U0001f4c5 [[{date}]] · \U0001f9ed {group}{track}{tags}",
+        # The date link is aliased, and that is not cosmetic. A BARE [[YYYY-MM-DD]] is
+        # exactly how the Kanban plugin serialises a card's own date field, so the plugin
+        # claims the link and sends a click to a daily note instead of to the day file the
+        # card came from. The alias is what stops it matching. The link stays relative, so
+        # the default carries no assumption about where in the vault the register sits — a
+        # corpus that needs path-qualification (basenames not unique across its vault) adds
+        # it in its own contract.
+        "meta": "\U0001f4c5 [[{date}|{date}]] · \U0001f9ed {group}{track}{tags}",
         "icon_separator": "",
         "icon_suffix": " ",
         "max_icons": 3,
@@ -132,6 +140,7 @@ DEFAULTS: dict = {
         "refreshed": "\U0001f504",
         "probe": "\U0001f50e",
         "proposal": "\U0001f4ec",
+        "init": "\U0001f331",
         "ok": "✅",
         "warn": "⚠️",
         "unresolved": "❔",
@@ -278,6 +287,26 @@ def resolve_register(cfg: dict, name: str | None) -> tuple[str, dict]:
             f"work-register: unknown register {chosen!r}; declared: {', '.join(sorted(registers))}"
         )
     return chosen, registers[chosen]
+
+
+def resolve_all(explicit_config: str | None, wanted: str | None) -> tuple[Layered, str, dict, dict]:
+    """Run both resolution phases and return (layers, name, register, cfg).
+
+    Phase 1 can only NAME a register; its conventions live at the root that name points to,
+    so the layer stack is not final until the register is known. Extracted because `--init`
+    has to prove its own work by resolving the register it just wrote, and a second copy of
+    this sequence would be free to drift from the one every other verb uses.
+    """
+    layers = load_config(explicit_config)
+    name, register = resolve_register(layers.cfg, wanted)
+
+    root = Path(os.environ.get("WORK_REGISTER_ROOT", register.get("data_root", "."))).expanduser()
+    corpus_marker = root / MARKER_NAME
+    if corpus_marker.is_file():
+        layers.apply(corpus_marker)
+        name, register = resolve_register(layers.cfg, wanted or name)
+
+    return layers, name, register, deep_merge(layers.cfg, register.get("overrides", {}))
 
 
 def register_paths(cfg: dict, register: dict) -> tuple[Path, Path]:
@@ -908,11 +937,335 @@ def find_section(cfg: dict, day_files: list[Path], item_id: str) -> tuple[Path, 
     return None
 
 
+# --- init: stand a register up in a vault that has never had one -------------------
+#
+# The engine already holds no vault path — a register is nothing but a `[register.<name>]`
+# binding plus a marker at its root. What was missing is the verb that writes those two
+# files, so standing a register up in a new vault meant knowing the shape by heart.
+#
+# Init writes exactly three things and refuses to overwrite any of them:
+#
+#   <root>/.work-register.toml   the corpus contract  (discovery marker + conventions)
+#   ~/.config/work-register/…    the per-machine binding, MERGED into what is there
+#   <root>/<register_dir>/       the day-file directory, with a README of the conventions
+#
+# It deliberately writes no board. The board is derived — the first sync renders it — and
+# an empty one scaffolded here would be a second source of truth for one run.
+
+# `__NAME__` is substituted, not `{}`-formatted, so the examples below stay free to contain
+# the braces a card template needs.
+INIT_CONTRACT = '''schema_version = 1
+
+# work-register corpus contract, for the register named
+#   __NAME__
+# which is rooted at this directory.
+#
+# Two jobs:
+#   1. Discovery — a session launched anywhere inside this vault resolves its register by
+#      walking up to this file, so no absolute path is needed in the engine or the skill.
+#   2. Contract authority — this vault governs its own conventions. Columns, lane markers,
+#      the tag/icon vocabulary and the card shape are declared here, and layer OVER the
+#      per-machine base config, which carries only the path bindings.
+#
+# Deliberately absent: the `[register.…]` binding itself, which names an absolute path —
+# a property of a machine, not of this vault. A copy here would be wrong the moment the
+# vault is cloned somewhere else, so it lives in the base config instead.
+#
+# Grammar is logic, not config: the day-file item syntax and the id format live in the
+# engine. What lives here is vocabulary — the part that changes as the work changes.
+#
+# Every key has a code default, so this file is short on purpose. Add to it only where this
+# vault's conventions genuinely differ from the engine's. `--show-config` prints the layers.
+
+# Marker → column, the one piece the engine cannot default: a marker vocabulary is a
+# choice, and with no lane declared every unticked item falls to `default_column`. The
+# first lane whose marker heads the item text wins. A ticked checkbox overrides the marker
+# and routes to `done_column`, so the done column needs no lane of its own.
+#
+# Markers are written WITHOUT the emoji variation selector, so an item matches whether or
+# not the source that typed it carried one.
+#
+# The columns named here are the engine's default flow: ▶️ Next → ⏳ In progress →
+# 🔴 Blocked → 🏁 Done.
+[[board.lanes]]
+marker = "▶"
+column = "▶️ Next"
+
+[[board.lanes]]
+marker = "⏳"
+column = "⏳ In progress"
+
+[[board.lanes]]
+marker = "🔴"
+column = "🔴 Blocked"
+
+# Adding a lane is two declarations, not one: the column has to join the flow as well.
+# `column_order` REPLACES the engine's list rather than extending it, so spell out the
+# whole flow in the order it should read left to right.
+#
+# [board]
+# column_order = ["📥 Wishlist", "▶️ Next", "⏳ In progress", "🔴 Blocked", "🏁 Done"]
+#
+# [[board.lanes]]
+# marker = "📥"
+# column = "📥 Wishlist"
+
+# Case-insensitive regex over the item text plus its day-file heading. EVERY match
+# contributes, so one card can carry several tags and several icons: the tags are what the
+# Kanban plugin can search and colour by, the icons are what make a tile legible without
+# reading it. This is the knob that keeps a board readable, and it needs no code change.
+#
+# [[tag_rules]]
+# pattern = "deploy|terraform|\\\\bprod(uction)?\\\\b"
+# tag     = "#prod"
+# icon    = "🚀"
+
+# Which track a card belongs to when the day file does not say outright. A card declares
+# its own with `::track-name` in the item text or in its `##` heading, and an explicit
+# declaration always wins.
+#
+# Matching is shaped like `tag_rules` with one deliberate difference: the FIRST match wins
+# and the rest are not consulted. A card touches several concerns, so it carries several
+# tags; it belongs to one thread of work, so the rules are an ordered decision. Order
+# therefore matters — narrow, unmistakable vocabulary above the broad patterns that would
+# otherwise swallow it. A card matching nothing has no track, which is a valid answer.
+#
+# [[track_rules]]
+# pattern = "\\\\bci\\\\b|required check|ruleset"
+# track   = "platform-devex"
+'''
+
+INIT_README = '''# Work register — day files
+
+One file per day, named `YYYY-MM-DD.md`. This directory is the **source**; the board is
+derived from it and disposable, fully reconstructible from these files.
+
+- `##` headings group a day's items, and a heading becomes each card's 🧭 group.
+- One checkbox line is one card. Wrapped lines are joined, so hard-wrap freely.
+- A leading marker routes the item to a column. The marker → column map lives in
+  `.work-register.toml` at the vault root — read it there rather than memorising it.
+- `- [x]` overrides the marker and routes the card to the done column.
+- `::track-name`, in an item or in its `##` heading, declares the thread of work it
+  belongs to. On a heading it claims every item underneath.
+- Day files are append-only. Never hand-edit a past day to reflect new status: move the
+  card on the board and run `--reconcile`, which rewrites only the checkbox and marker.
+- Date every claim carried in from memory ("as of the 2026-08-20 park — re-verify"). A
+  day file is read weeks later, and an undated status rots silently.
+- The `<!-- wr:… -->` ids are minted and stamped by the sync. Do not write them by hand.
+- `.sync-state.json` is the ledger. It records every id ever placed, which is what keeps a
+  card deleted from the board from being resurrected by the next sync.
+'''
+
+
+def slug_for_register(raw: str) -> str:
+    """A register name is used as a TOML bare key, so it has to survive being one.
+
+    A vault directory is commonly named for a domain (`notes.example.com`), and the dots in
+    a bare key would silently nest three tables instead of naming one register.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
+    return slug or "register"
+
+
+def base_config_block(name: str, root: Path, register_dir: str, board: str) -> str:
+    return (
+        f"\n[register.{name}]\n"
+        "# Absolute paths live only here, per machine and out of the vault. The vault at\n"
+        f"# this root governs its own conventions in its {MARKER_NAME}.\n"
+        f'data_root    = "{root}"\n'
+        f'register_dir = "{register_dir}"\n'
+        f'board        = "{board}"\n'
+    )
+
+
+BASE_CONFIG_HEADER = """# work-register — per-machine register registry.
+#
+# Which registers THIS machine serves and where their roots are. Absolute paths live only
+# here, out of the vault, so nothing user-specific is committed to the skill.
+#
+# Conventions — columns, lanes, the tag/icon vocabulary, card shape — are NOT declared
+# here. Each register root owns them in its own .work-register.toml, which layers over
+# this file. Every key has a code default, so this file only needs the bindings.
+
+schema_version = 1
+"""
+
+
+def merge_base_config(text: str, block: str, set_default: str | None) -> str:
+    """Splice a new register into the base config's TEXT, never its parsed form.
+
+    Re-serialising the parsed document would drop every comment, and the comments are the
+    only thing that explains why a machine-local file exists at all. So the register table
+    is appended — safe, because a table header ends whatever table preceded it — while
+    `default_register` is a bare key and must be spliced in ABOVE the first table header,
+    or it would silently become a member of the last table in the file.
+    """
+    lines = text.splitlines()
+    if set_default:
+        entry = [
+            "# The register a bare invocation resolves to.",
+            f'default_register = "{set_default}"',
+            "",
+        ]
+        first_table = next(
+            (i for i, line in enumerate(lines) if line.lstrip().startswith("[")), len(lines)
+        )
+        lines[first_table:first_table] = entry
+    body = "\n".join(lines).rstrip("\n")
+    return (body + "\n" if body else "") + block
+
+
+def init_register(args) -> int:
+    log = DEFAULTS["log"]
+    root = Path(args.init).expanduser().resolve()
+    if not root.is_dir():
+        print(
+            f"work-register: --init wants an existing vault directory; {root} is not one",
+            file=sys.stderr,
+        )
+        return 2
+
+    name = slug_for_register(args.name or root.name)
+    register_dir = args.register_dir or DEFAULTS["paths"]["register_dir"]
+    board = args.board or DEFAULTS["paths"]["board"]
+    marker = root / MARKER_NAME
+
+    # Refuse before writing anything. A half-initialised register is worse than none: the
+    # binding and the contract only mean something together.
+    base_text = BASE_CONFIG.read_text(encoding="utf-8") if BASE_CONFIG.is_file() else ""
+    before = read_toml(BASE_CONFIG) if BASE_CONFIG.is_file() else {}
+    refusals = []
+    if marker.is_file():
+        refusals.append(f"{marker} already exists")
+    if name in (before.get("register") or {}):
+        declared = before["register"][name].get("data_root", "?")
+        refusals.append(f"{BASE_CONFIG} already declares [register.{name}] → {declared}")
+    if refusals:
+        for refusal in refusals:
+            print(f"work-register: {refusal}", file=sys.stderr)
+        print(
+            "work-register: init will not overwrite an existing register. Pass --name to "
+            "declare a second one, or edit these files by hand.",
+            file=sys.stderr,
+        )
+        return 1
+
+    contract = INIT_CONTRACT.replace("__NAME__", name)
+    block = base_config_block(name, root, register_dir, board)
+    set_default = name if not before.get("default_register") else None
+    merged = (
+        merge_base_config(base_text, block, set_default)
+        if base_text
+        else merge_base_config(BASE_CONFIG_HEADER, block, name)
+    )
+
+    print(f"{log['init']} init register {name!r} at {root}")
+    print(f"   contract:  {marker}")
+    print(f"   binding:   {BASE_CONFIG}  [register.{name}]")
+    print(f"   day files: {root / register_dir}")
+    print(f"   board:     {root / board}  (not written — the first sync renders it)")
+    if set_default:
+        print(f"   default_register: unset → {name}")
+    else:
+        print(f"   default_register: {before.get('default_register')!r} left as it is")
+
+    if args.dry_run:
+        print(f"\n{log['dry_run']} dry run — nothing written. {MARKER_NAME} would be:\n")
+        print(contract)
+        verb = "appended to" if base_text else "created, carrying"
+        print(f"{log['dry_run']} and {BASE_CONFIG} would be {verb}:\n")
+        print(block.strip("\n"))
+        return 0
+
+    marker.write_text(contract, encoding="utf-8")
+
+    # The base config is shared with every other register on this machine, so it is the one
+    # write that can destroy work. Back it up, splice, re-parse, and prove nothing that was
+    # there before has moved — restoring from the backup if anything has.
+    backup = None
+    if base_text:
+        stamp = datetime.now().astimezone().strftime("%Y%m%d%H%M%S")
+        backup = BASE_CONFIG.parent / f"{BASE_CONFIG.name}.bak-{stamp}"
+        backup.write_text(base_text, encoding="utf-8")
+    BASE_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    BASE_CONFIG.write_text(merged, encoding="utf-8")
+
+    try:
+        after = read_toml(BASE_CONFIG)
+        lost = [key for key, value in before.items() if key != "register" and after.get(key) != value]
+        lost += [
+            f"register.{key}"
+            for key, value in (before.get("register") or {}).items()
+            if (after.get("register") or {}).get(key) != value
+        ]
+        if name not in (after.get("register") or {}):
+            lost.append(f"register.{name} (the new binding did not land)")
+        if lost:
+            # RuntimeError, not SystemExit: SystemExit is a BaseException, so it would sail
+            # straight past the handler that restores the backup.
+            raise RuntimeError("lost or altered: " + ", ".join(lost))
+    except Exception as exc:
+        if backup:
+            BASE_CONFIG.write_text(base_text, encoding="utf-8")
+        marker.unlink(missing_ok=True)
+        print(f"work-register: {BASE_CONFIG} merge rejected — {exc}", file=sys.stderr)
+        print("work-register: restored the base config and removed the contract", file=sys.stderr)
+        return 1
+
+    if backup:
+        print(f"   {log['ok']} base config merged · backup {backup.name}")
+
+    (root / register_dir).mkdir(parents=True, exist_ok=True)
+    readme = root / register_dir / "README.md"
+    if readme.is_file():
+        print(f"   {log['warn']} {readme} already exists — left as it is")
+    else:
+        readme.write_text(INIT_README, encoding="utf-8")
+
+    # Prove it rather than assert it: resolve the register through the same two phases every
+    # other verb uses, and report what the engine actually sees.
+    layers, resolved, register, cfg = resolve_all(None, name)
+    resolved_dir, resolved_board = register_paths(cfg, register)
+    print(f"\n{log['config']} resolved through {len(layers.sources)} config layer(s):")
+    for source in layers.sources:
+        print(f"   - {source}")
+    print(f"{log['register']} register: {resolved}  {log['board']} board: {resolved_board}")
+    print(f"   day files: {resolved_dir}  (exists: {resolved_dir.is_dir()})")
+    print(f"   lanes: {len(cfg['board'].get('lanes', []))}"
+          f" · columns: {len(cfg['board']['column_order'])}"
+          f" · vocabulary rules: {len(cfg.get('tag_rules', []))}"
+          f" · track rules: {len(cfg.get('track_rules', []))}")
+    print(f"{log['done']} write a {resolved_dir.name}/YYYY-MM-DD.md day file, then run "
+          "sync_board.py to render the board")
+    return 0
+
+
 # --- Entry point ------------------------------------------------------------------
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--register", help="named register to sync (default: default_register)")
     parser.add_argument("--config", help="extra config layer, applied last")
+    parser.add_argument(
+        "--init",
+        metavar="PATH",
+        help="stand a register up in the vault at PATH: write its .work-register.toml "
+        "contract, merge a [register.<name>] binding into the per-machine base config, and "
+        "create the day-file directory. Writes no board — the first sync renders it",
+    )
+    parser.add_argument(
+        "--name",
+        help="with --init, the register's name (default: a slug of the directory basename)",
+    )
+    parser.add_argument(
+        "--register-dir",
+        help="with --init, the day-file directory, relative to the vault root "
+        f"(default: {DEFAULTS['paths']['register_dir']})",
+    )
+    parser.add_argument(
+        "--board",
+        help="with --init, the board file, relative to the vault root "
+        f"(default: {DEFAULTS['paths']['board']})",
+    )
     parser.add_argument("--since", help="only ingest day files on or after this date")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--show-config", action="store_true", help="print resolved layers and exit")
@@ -982,17 +1335,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    layers = load_config(args.config)
-    name, register = resolve_register(layers.cfg, args.register)
+    # Before resolution, not after: on a machine with no base config there is no register to
+    # resolve yet, and writing one is the whole point of the verb.
+    if args.init:
+        return init_register(args)
 
-    # Phase 2 — the corpus at data_root governs its own conventions.
-    root = Path(os.environ.get("WORK_REGISTER_ROOT", register.get("data_root", "."))).expanduser()
-    corpus_marker = root / MARKER_NAME
-    if corpus_marker.is_file():
-        layers.apply(corpus_marker)
-        name, register = resolve_register(layers.cfg, args.register or name)
-
-    cfg = deep_merge(layers.cfg, register.get("overrides", {}))
+    layers, name, register, cfg = resolve_all(args.config, args.register)
     log = cfg["log"]
 
     if args.show_config:
