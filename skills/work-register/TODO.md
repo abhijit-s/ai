@@ -29,9 +29,30 @@ Shape:
   values), but it puts a per-machine path in a vault-committed file, which is exactly what
   a clone of that vault onto another machine would get wrong. `--init` deliberately does
   not write that table; the old contract could drop it.
-- **Own tools** — expose the verbs (`capture`, `sync`, `move`, `reconcile`, `rebuild`,
-  `status`) as callable tools instead of a bash invocation, so an agent can move the board
-  without shelling out.
+- **Own tools** — **DEFERRED, and the reasoning matters more than the feature.** The want
+  was to expose the verbs (`capture`, `sync`, `move`, `reconcile`, `rebuild`, `status`) as
+  callable tools — a Model Context Protocol (MCP) server inside the plugin — so an agent
+  could drive the board without shelling out.
+
+  Every reason this item existed has since been met more cheaply, by things built after it
+  was written:
+
+  | The want | What answers it now |
+  | --- | --- |
+  | Discoverable without reading docs | the skill, plus the SessionStart hook that pushes the verbs into context |
+  | Typed, validated arguments | the engine validates; `resolve_column` matches a column by substring |
+  | A structured return the model need not parse out of stdout | `--list --json` |
+  | Frictionless to invoke | `python3` is already allowlisted; a new server would need its own permission plumbing |
+
+  Against that, an MCP server's schemas occupy context in every session whether or not the
+  board is touched, and the mitigation — deferring them — costs a discovery round-trip
+  before the first call. A running cost, to replace a bash invocation that has neither.
+
+  **Revisit when, and only when, something without a shell has to drive the register** —
+  another product, a browser agent, a job calling over a protocol. Until then this is
+  complexity mistaken for sophistication, which is the failure this file exists to prevent.
+  Recorded rather than deleted so the next reader inherits the argument instead of
+  re-proposing the feature.
 - **Slash commands** — `/work-register` (capture today), `/wr-move <card> <lane>`,
   `/wr-board` (render current state in chat). The engine verbs exist already (`--move`
   lands a card in a lane and reconciles the day file; `--reconcile` absorbs drags made in
