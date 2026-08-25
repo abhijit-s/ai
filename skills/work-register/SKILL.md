@@ -86,6 +86,49 @@ sync_board.py --show-config  # resolved config layers
 sync_board.py --register <name> --since 2026-08-01
 ```
 
+## The read surface — `--list` and `--show`
+
+Every verb above either mutates or renders a verdict. **Neither returns cards.** So reach
+for these two whenever the question is *what is on the board?* rather than *change it*.
+Both are strictly read-only — no id is minted, no board written, no ledger touched.
+
+```bash
+sync_board.py --list                                  # every card, in board order
+sync_board.py --list --track prod-setup --open        # one track's unfinished work
+sync_board.py --list --column "in progress"          # substring match; emoji optional
+sync_board.py --list --json                          # the programmatic surface
+sync_board.py --show 20260821-03                     # the reasoning behind one card
+```
+
+**`--list`** prints one line per card — `id · column · 🧵 track · text` — in exactly the
+board's own order (configured `column_order`, then position within the column), so it reads
+as a *subset of the board* rather than a re-sort of it. Filters compose. `--open` drops the
+done column and nothing else: **Parked is deferred, not closed.**
+
+`--json` emits an array of `{id, date, group, column, track, tags, done, text}`. Those key
+names are a contract — build on them.
+
+**`--show ID`** prints the day-file section behind one card: its `##` heading, the group's
+context prose, and the item line as written, plus the card's live column and track. That is
+the *reasoning*, which the card face necessarily drops. An unknown id is a failed lookup —
+it reports to stderr and exits non-zero.
+
+**Never read the whole board or a whole day file to answer a question these answer.** The
+board is ~13 KB and a day file ~15 KB; one track's open cards are a few hundred bytes.
+
+`track` is what makes this worth having: it is the field that partitions the board by *who
+is asking*. A card declares it with `::name` in the item text or its `##` heading, or
+inherits it from a `[[track_rules]]` match.
+
+### SessionStart already told you
+
+The `work-register-pulse.sh` SessionStart hook resolves this conversation's memory-kit
+track from its ledger and injects that track's open cards as context — so a resumed session
+knows its register slice at **zero tool calls**. It caps the list, and stays silent when
+there is no track (the normal case on a fresh session, which starts before any `::track`
+directive) or nothing stale. If those cards are already in your context, do not re-fetch
+them; use `--show` to go deeper on one, or `--list` to widen the slice.
+
 Run the default sync right after writing a day file, and **report which column each new
 card landed in** — that is the user's confirmation that routing matched their intent.
 Offer `--reconcile` when they mention having moved cards or finished something.
@@ -172,6 +215,8 @@ then drop a `.work-register.toml` at that root for its conventions.
 | Re-list yesterday's unfinished item in today's file | It is already on the board |
 | `--rebuild` to "tidy up" | It discards the user's drags — `--refresh` if you only fixed text |
 | Leaving a corrected day-file item stale on the board | `--refresh` |
+| Read the whole board to find a few cards | `--list --track X --open` |
+| Guess why a card exists from its face | `--show ID` — the day file holds the reasoning |
 | Restate track status in the register | Link to `Memory/auto/*` / `RESUME.md` |
 | Hardcode a vault path in the engine or skill | Read it from config |
 | Add a tag rule in Python | Add `[[tag_rules]]` to the corpus config |

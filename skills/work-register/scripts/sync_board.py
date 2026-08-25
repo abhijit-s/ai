@@ -26,6 +26,15 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
+
+Read surface — the two verbs that return cards rather than acting on them. Every verb
+above either mutates or renders a verdict, so a session that only wants to know what is
+on its plate had no choice but to read the whole board:
+
+    sync_board.py --list [--track NAME] [--column NAME] [--open] [--json]
+    sync_board.py --show ID      # the day-file section behind one card
+
+Both are strictly read-only: no id is minted, no board is written, no ledger is touched.
 """
 
 from __future__ import annotations
@@ -98,6 +107,9 @@ DEFAULTS: dict = {
         "icon_separator": "",
         "icon_suffix": " ",
         "max_icons": 3,
+        # How wide a card's text reads in a `--list` line before it is elided. A display
+        # tunable, so it sits with the other card-shape knobs rather than in the engine.
+        "list_text_width": 72,
         # Collapsing to nothing when there is no track is grammar; the emoji and the
         # separator that lead the segment are vocabulary, so both live in one format
         # string a corpus can restyle without touching code.
@@ -123,6 +135,10 @@ DEFAULTS: dict = {
         "ok": "✅",
         "warn": "⚠️",
         "unresolved": "❔",
+        # The track marker for a `--list` line. It has a code default like every other
+        # key here, so a corpus that restyles its card face can restyle the listing to
+        # match without the engine carrying a literal emoji in a format string.
+        "track": "\U0001f9f5",
     },
     "probe": {
         # repo shorthand -> owner/repo, so a card may cite `app#733` not the full path.
@@ -524,6 +540,28 @@ def board_status(cfg: dict, columns: dict[str, list[str]]) -> dict[str, str]:
     }
 
 
+def column_sequence(cfg: dict, columns: dict[str, list[str]]) -> list[str]:
+    """The board's column order: the configured flow first, then anything else present."""
+    ordered = list(cfg["board"]["column_order"])
+    return ordered + [name for name in columns if name not in ordered]
+
+
+def board_cards(cfg: dict, columns: dict[str, list[str]]) -> list[tuple[str, str, bool]]:
+    """Every card in the board's own reading order: (id, column, checkbox).
+
+    Column order first, then each card's position within its column — so a listing built
+    on this reads as a SUBSET of the board rather than a re-sort of it, which is what lets
+    a foreign session trust it without opening the board itself.
+    """
+    finder = id_pattern(cfg["ids"]["prefix"])
+    found: list[tuple[str, str, bool]] = []
+    for column in column_sequence(cfg, columns):
+        for card in columns.get(column, []):
+            done = card.lstrip()[:5].lower() == "- [x]"
+            found += [(m.group(1), column, done) for m in finder.finditer(card)]
+    return found
+
+
 def marker_for_column(cfg: dict, column: str) -> str:
     for lane in cfg["board"].get("lanes", []):
         if lane["column"] == column:
@@ -810,15 +848,64 @@ def render_board(cfg: dict, columns: dict[str, list[str]]) -> str:
     out += [f"{key}: {value}" for key, value in cfg["board"]["frontmatter"].items()]
     out += ["---", ""]
 
-    ordered = list(cfg["board"]["column_order"])
-    ordered += [name for name in columns if name not in ordered]
-    for name in ordered:
+    for name in column_sequence(cfg, columns):
         out += [f"## {name}", ""]
         out += columns.get(name, [])
         out.append("")
 
     out += ["", "%% kanban:settings", "```", cfg["kanban"]["settings"], "```", "%%"]
     return "\n".join(out) + "\n"
+
+
+# --- Read surface: return cards, change nothing ------------------------------------
+#
+# Every other verb either mutates or renders a verdict, so a session that is not the one
+# holding the board had only bad options for "what is on my plate?" — read the whole
+# board, read a whole day file, or take ids from --status with no text attached. These two
+# verbs answer it directly, and they are the reason `track` is worth carrying on a card:
+# it is the one field that partitions the board by who is asking.
+#
+# Strictly read-only. Ids are minted in memory (mutate=False) so a listing still reports
+# the real placement of an un-stamped item, but no day file, board or ledger is written.
+
+
+def day_file_items(cfg: dict, day_files: list[Path]) -> dict[str, Item]:
+    """id → Item across the day files. The day-file-owned half of every card."""
+    found: dict[str, Item] = {}
+    for path in day_files:
+        items, _ = parse_day_file(cfg, path, path.stem, mutate=False)
+        for item in items:
+            found[item.item_id] = item
+    return found
+
+
+def elide(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: max(1, width - 1)].rstrip() + "…"
+
+
+def card_json(item: Item, column: str, done: bool) -> dict:
+    """The programmatic shape of one card. Key names are the contract — keep them stable."""
+    return {
+        "id": item.item_id,
+        "date": item.date,
+        "group": item.group,
+        "column": column,
+        "track": item.track,
+        "tags": item.tags,
+        "done": done,
+        "text": item.text,
+    }
+
+
+def find_section(cfg: dict, day_files: list[Path], item_id: str) -> tuple[Path, dict, dict] | None:
+    """Locate the day-file section that carries one card: (path, section, item)."""
+    prefix = cfg["ids"]["prefix"]
+    for path in day_files:
+        for section in parse_day_sections(path, path.stem, prefix):
+            for item in section["items"]:
+                if item["id"] == item_id:
+                    return path, section, item
+    return None
 
 
 # --- Entry point ------------------------------------------------------------------
@@ -846,6 +933,32 @@ def main() -> int:
         "--status",
         action="store_true",
         help="report register health: last capture, lane counts, cards stale in a lane",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="list cards in board order, filtered by --track / --column / --open. "
+        "Read-only: writes nothing",
+    )
+    parser.add_argument(
+        "--show",
+        metavar="ID",
+        help="print the day-file section behind one card — its heading, context prose and "
+        "item line — plus the card's current column and track. Read-only",
+    )
+    parser.add_argument("--track", help="with --list, keep only cards on this exact track")
+    parser.add_argument(
+        "--column",
+        help="with --list, keep only cards in this column (substring match, emoji optional)",
+    )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="with --list, drop cards in the done column. Parked is deferred, not closed, "
+        "so it is NOT excluded",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="with --list, emit JSON instead of lines"
     )
     parser.add_argument(
         "--brief", action="store_true", help="with --status, print only the verdict line"
@@ -911,9 +1024,79 @@ def main() -> int:
     ledger_path = register_dir / LEDGER_NAME
     ledger = load_ledger(ledger_path)
     columns, on_board = parse_board(cfg, board_path)
-    # --brief exists to be consumed by a hook, so it must emit exactly one line.
-    if not (args.status and args.brief):
+    # --brief exists to be consumed by a hook, so it must emit exactly one line; --json is
+    # a machine surface, so its stdout must be nothing but the document.
+    if not (args.status and args.brief) and not args.json:
         print(f"{log['register']} register: {name}  {log['board']} board: {board_path}")
+
+    # --- list: the read surface — filtered cards, in the board's own order -------
+    if args.list:
+        items = day_file_items(cfg, day_files)
+        wanted = resolve_column(cfg, columns, args.column) if args.column else None
+        done_column = cfg["board"]["done_column"]
+
+        rows, orphans = [], 0
+        for item_id, column, done in board_cards(cfg, columns):
+            item = items.get(item_id)
+            if item is None:
+                orphans += 1
+                continue
+            if wanted and column != wanted:
+                continue
+            # --open drops the done column and nothing else: Parked is deferred work, not
+            # closed work, and `[probe] skip_columns` is probe vocabulary, not this filter.
+            if args.open and column == done_column:
+                continue
+            if args.track and item.track != args.track:
+                continue
+            rows.append((item, column, done))
+
+        if args.json:
+            print(json.dumps(
+                [card_json(item, column, done) for item, column, done in rows],
+                indent=2, ensure_ascii=False,
+            ))
+            return 0
+
+        asked = " · ".join(filter(None, [
+            f"track {args.track}" if args.track else "",
+            f"column {wanted}" if wanted else "",
+            "open only" if args.open else "",
+        ])) or "no filter"
+        if not rows:
+            print(f"{log['empty']} no cards match ({asked}) — the register is fine, "
+                  "this slice is just empty")
+            return 0
+        width = cfg["card"].get("list_text_width", 72)
+        for item, column, _ in rows:
+            track = f" · {log['track']} {item.track}" if item.track else ""
+            print(f"   {item.item_id} · {column}{track} · {elide(item.text, width)}")
+        print(f"{log['done']} {len(rows)} card(s) · {asked}")
+        if orphans:
+            print(f"   {log['warn']} {orphans} card(s) on the board have no day-file item")
+        return 0
+
+    # --- show: the reasoning behind one card, not just its face ------------------
+    if args.show:
+        target = args.show.strip()
+        located = find_section(cfg, day_files, target)
+        if located is None:
+            print(f"{log['unresolved']} no card with id {target!r} in any day file "
+                  f"under {register_dir}", file=sys.stderr)
+            return 1
+        path, section, entry = located
+        item = day_file_items(cfg, day_files).get(target)
+        column = board_status(cfg, columns).get(target) or "(not on the board)"
+        track = f" · {log['track']} {item.track}" if item and item.track else ""
+        print(f"   {target} · {column}{track}")
+        print(f"   {log['register']} {path.name} — {section['group'] or '(no heading)'}")
+        prose = section["prose"].strip("\n")
+        if prose.strip():
+            print()
+            print(prose)
+        print()
+        print(f"   → {entry['text']}")
+        return 0
 
     # --- move: relocate cards by id (the /-command surface) ----------------------
     if args.move:
