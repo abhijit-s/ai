@@ -850,7 +850,9 @@ def main() -> int:
     ledger_path = register_dir / LEDGER_NAME
     ledger = load_ledger(ledger_path)
     columns, on_board = parse_board(cfg, board_path)
-    print(f"{log['register']} register: {name}  {log['board']} board: {board_path}")
+    # --brief exists to be consumed by a hook, so it must emit exactly one line.
+    if not (args.status and args.brief):
+        print(f"{log['register']} register: {name}  {log['board']} board: {board_path}")
 
     # --- move: relocate cards by id (the /-command surface) ----------------------
     if args.move:
