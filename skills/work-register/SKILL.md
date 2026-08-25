@@ -1,6 +1,6 @@
 ---
 name: work-register
-description: Maintain the daily work register and its Obsidian Kanban board. Use when the user says "note this in my work register", "what's on for tomorrow", "add to the register", "sync the board", or dictates a day's plan of what to work on. Covers per-day register files, lane routing, tag/icon vocabulary, and board sync.
+description: Maintain AND query the daily work register and its Obsidian Kanban board. Use for capture — "note this in my work register", "add to the register", "sync the board", or a dictated day's plan — and equally for lookup, whenever the answer lives on the board rather than in the code: "what's on my plate", "what's on for tomorrow", "what's in progress", "am I blocked on anything", "what's still open", "where did we get to on X", "what's stale", "take stock of the register", or any question about a card, a lane, or one track's slice of work. Also for moving a card between lanes, reconciling drags made in the Obsidian UI, and standing a register up in a new vault. Covers per-day files as the source, the derived board, lane routing, the tag/icon and track vocabulary, and the read verbs that answer a lookup in a few hundred bytes rather than a 13KB board read.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

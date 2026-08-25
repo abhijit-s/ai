@@ -27,19 +27,24 @@
       "order": 3
     },
     "vocab-acronyms": {
-      "title": "Vocabulary \u2014 Acronym Expansion",
+      "title": "Vocabulary — Acronym Expansion",
       "category": "vocabulary",
       "order": 1
     },
     "vault-skill-routing": {
-      "title": "Vault Skill Routing \u2014 obsidian-second-brain vs engineering-tools",
+      "title": "Vault Skill Routing — obsidian-second-brain vs engineering-tools",
       "category": "routing",
       "order": 1
     },
     "lifecycle-routing": {
-      "title": "Lifecycle-Stack Routing \u2014 ce-* spine (ADR-097)",
+      "title": "Lifecycle-Stack Routing — ce-* spine (ADR-097)",
       "category": "routing",
       "order": 2
+    },
+    "work-register-lookup": {
+      "title": "Work Register — query it, never read the board",
+      "category": "routing",
+      "order": 3
     }
   },
   "profiles": {
@@ -50,7 +55,8 @@
       "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
-      "lifecycle-routing"
+      "lifecycle-routing",
+      "work-register-lookup"
     ],
     "claude": [
       "agent-tier-selection",
@@ -59,7 +65,8 @@
       "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
-      "lifecycle-routing"
+      "lifecycle-routing",
+      "work-register-lookup"
     ],
     "general-purpose": [
       "agent-tier-selection",
@@ -68,7 +75,8 @@
       "worktree-hygiene",
       "vocab-acronyms",
       "vault-skill-routing",
-      "lifecycle-routing"
+      "lifecycle-routing",
+      "work-register-lookup"
     ],
     "Explore": [
       "agent-tier-selection",

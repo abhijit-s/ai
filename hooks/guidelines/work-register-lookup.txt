@@ -1,0 +1,26 @@
+The work register is two surfaces: per-day files in the register directory are the SOURCE,
+and WORK-REGISTER.md is a DERIVED Kanban board. Never hand-edit the board — it is
+regenerated, so an edit is lost on the next sync.
+
+To learn what is on the plate, query the engine. Do NOT read WORK-REGISTER.md (~13KB,
+every card including the closed ones) or a day file (~15KB) to answer a question these
+verbs answer in a few hundred bytes:
+
+  sync_board.py --list --open                    # the standing worklist
+  sync_board.py --list --track <name> --open     # one thread of work's slice
+  sync_board.py --list --json                    # id, column, track, tags, done, text
+  sync_board.py --show <id>                      # the day-file reasoning behind one card
+  sync_board.py --status                         # health: last capture, stale lanes
+
+The engine lives at ~/ai/skills/work-register/scripts/sync_board.py and resolves its own
+register from config — pass no paths.
+
+Two rules that keep the board trustworthy:
+
+1. Per-field ownership. Day files own a card's existence, text, grouping and `::track`;
+   the board owns its column and checkbox. Never write a field you do not own — add a card
+   by authoring a day-file item (sync mints the id), change a status with
+   `--move <id>=<column>`, which reconciles the day file for you.
+
+2. Status is the owner's call. `--probe` proposes movements from a card's own references
+   and never applies them. Do not silently relocate a card to make the board look tidy.
