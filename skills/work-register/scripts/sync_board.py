@@ -89,6 +89,7 @@ ITEM = re.compile(r"^(\s*)-\s*\[([ xX])\]\s*(.*)$")
 CONTINUATION = re.compile(r"^\s+\S")
 FRONTMATTER = re.compile(r"\A---\n(.*?\n)---\n", re.DOTALL)
 SETTINGS_BLOCK = re.compile(r"\n*%%\s*kanban:settings.*\Z", re.DOTALL)
+SETTINGS_FENCE = re.compile(r"%%\s*kanban:settings\s*\n```\n(.*?)\n```\s*%%", re.DOTALL)
 ORDINAL = re.compile(r"^[0-9️⃣\s]+")
 # `::name` declares the memory-kit track a card belongs to. The token must stand alone:
 # the leading guard is what keeps it out of a URL — `https://…` and `http://[::1]/` both
@@ -806,7 +807,10 @@ def write_boards(
     written: list[Path] = []
     for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_board(cfg, per_board.get(path, {})), encoding="utf-8")
+        # Read the settings the board carries BEFORE overwriting it: this is the last
+        # moment the plugin's half of that block still exists.
+        settings = merge_settings(cfg["kanban"]["settings"], board_settings(path))
+        path.write_text(render_board(cfg, per_board.get(path, {}), settings), encoding="utf-8")
         written.append(path)
     return written
 
@@ -1339,7 +1343,50 @@ def days_since(stamp: str | None) -> int | None:
         return None
 
 
-def render_board(cfg: dict, columns: dict[str, list[str]]) -> str:
+def board_settings(path: Path) -> str | None:
+    """The `%% kanban:settings %%` payload already on a board, or None if there is none."""
+    if not path.is_file():
+        return None
+    found = SETTINGS_FENCE.search(path.read_text(encoding="utf-8"))
+    return found.group(1) if found else None
+
+
+def merge_settings(declared: str, existing: str | None) -> str:
+    """The contract governs the keys it declares; anything else on the board survives.
+
+    The settings block has two authors. The contract declares the keys that are vocabulary
+    — the tag colours, whether checkboxes show — and the Obsidian Kanban plugin writes its
+    own into the same block whenever someone changes a setting in its interface. A render
+    that rebuilt the block from the contract alone silently discarded the plugin's half at
+    the next sync, so a preference set in the interface lasted until the next capture.
+
+    Merging makes the plugin's half durable without a config edit, and does not cost the
+    contract its authority: a key the contract declares is answered by the contract, so a
+    value the plugin wrote over a declared one is corrected rather than adopted.
+
+    Returned VERBATIM when there is nothing to merge, which is the property that matters on
+    a register whose contract already declares every key its board carries: the block is
+    never re-serialised, so a settled board stays byte-identical rather than merely
+    equivalent.
+    """
+    if not existing:
+        return declared
+    try:
+        already = json.loads(existing)
+        governs = json.loads(declared)
+    except (json.JSONDecodeError, TypeError):
+        # A board is a file a person can also edit, and unreadable is not a reason to refuse
+        # to render. The contract is the answer of record.
+        return declared
+    if not isinstance(already, dict) or not isinstance(governs, dict):
+        return declared
+    extra = {key: value for key, value in already.items() if key not in governs}
+    if not extra:
+        return declared
+    return json.dumps({**governs, **extra}, ensure_ascii=False, separators=(",", ":"))
+
+
+def render_board(cfg: dict, columns: dict[str, list[str]], settings: str | None = None) -> str:
     out = ["---"]
     out += [f"{key}: {value}" for key, value in cfg["board"]["frontmatter"].items()]
     out += ["---", ""]
@@ -1349,7 +1396,7 @@ def render_board(cfg: dict, columns: dict[str, list[str]]) -> str:
         out += columns.get(name, [])
         out.append("")
 
-    out += ["", "%% kanban:settings", "```", cfg["kanban"]["settings"], "```", "%%"]
+    out += ["", "%% kanban:settings", "```", settings or cfg["kanban"]["settings"], "```", "%%"]
     return "\n".join(out) + "\n"
 
 

@@ -394,7 +394,13 @@ present", so a plugin-written `## Archive` section is read as **just another col
 re-rendered as one, its cards still counted by `--list` and `--status`, and `--reconcile`
 stamping the column name back into day files. The board is a file two writers share, and
 each assuming it owns the file is the same bug class as a plugin deleting our frontmatter
-key, or our render dropping the plugin's settings keys.
+key.
+
+The `%% kanban:settings %%` block has the same two authors, and the render **merges**
+rather than overwrites: the contract governs the keys it declares, and any other key
+already in the block is the plugin's and survives. So a setting toggled in the plugin's own
+interface lasts, with no config edit. A key the contract declares stays the contract's
+answer, so a plugin write over a declared key is corrected rather than adopted.
 
 ## Configuration (memory-kit philosophy)
 
