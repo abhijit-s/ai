@@ -468,6 +468,41 @@ actually sees — layers, paths, lane and rule counts. A successful init proves 
 To add a register **by hand** instead: declare `[register.<name>]` with `data_root` in the
 per-machine config, then drop a `.work-register.toml` at that root for its conventions.
 
+## Tests
+
+```bash
+cd ~/ai/skills/work-register
+python3 -m unittest discover -s tests -t tests          # the suite
+python3 -m unittest discover -s tests -t tests -v       # naming each test
+python3 -m unittest discover -s tests -t tests -p 'test_scope.py'   # one group
+```
+
+Standard-library `unittest`, no dependency to install — the engine is stdlib-only and
+stays so. **Run it after every engine change**, and add to it before fixing any defect: the
+suite exists because six changes shipped verified by hand-run commands alone and the four
+defects that followed were each found by accident.
+
+Every fixture is a throwaway register in a temp directory with its own redirected home, so
+`--init` merging a binding into the per-machine base config lands in the fixture and cannot
+reach this machine's. **Nothing touches the live register**, and nothing touches the
+network: the probe is exercised against canon documents on disk, and GitHub references are
+covered at the parsing boundary instead.
+
+| Group | What it holds the line on |
+| --- | --- |
+| `test_render` | Frontmatter, the settings block, and `--refresh` carrying block anchors and the checkbox |
+| `test_ownership` | `--reconcile` writing only column and checkbox; additive sync; tombstones and archive |
+| `test_readsurface` | Read-only and dry-run verbs writing nothing; the one-line `--status --brief`; `--show`'s exit code |
+| `test_track` | Track precedence, and the `::` grammar staying out of URLs and qualified names |
+| `test_scope` | The board partition, the trackless catch-all, and `--migrate` |
+| `test_probe` | Reference extraction, and item-bound proposals versus section-bound advice |
+| `test_rebuild` | The `--discard-placement` gate and the staleness clock |
+| `test_init` | The three things init writes and its refusal to overwrite any of them |
+
+Two tests deliberately pin behaviour rather than assert an ideal, and say so in their
+docstrings — `--list --scope <default>` not matching a trackless card, and a consented
+`--rebuild` still discarding anchors. Changing either means re-arguing the decision there.
+
 ## Anti-patterns
 
 | Don't | Instead |
