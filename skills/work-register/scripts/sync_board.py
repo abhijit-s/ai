@@ -32,7 +32,7 @@ Read surface — the two verbs that return cards rather than acting on them. Eve
 above either mutates or renders a verdict, so a session that only wants to know what is
 on its plate had no choice but to read the whole board:
 
-    sync_board.py --list [--track NAME] [--column NAME] [--open] [--json]
+    sync_board.py --list [--track NAME] [--scope NAME] [--column NAME] [--open] [--json]
     sync_board.py --show ID      # the day-file section behind one card
 
 Both are strictly read-only: no id is minted, no board is written, no ledger is touched.
@@ -65,6 +65,8 @@ LEDGER_NAME = ".sync-state.json"
 #
 # `track` sits on the day-file side with text and grouping, which is why it needs no
 # reconcile path: a declaration the board cannot change is a declaration that cannot drift.
+# `scope` adds no fifth row to this table: it is DERIVED from the track, so it inherits
+# that ownership instead of becoming a field two surfaces could disagree about.
 #
 # The ledger records every id ever placed, which is what lets a DELETED card stay deleted
 # instead of being resurrected on the next sync.
@@ -102,6 +104,27 @@ DEFAULTS: dict = {
     },
     "tag_rules": [],
     "track_rules": [],
+    # Scope — what tells personal work from work work on ONE board. It is a property of a
+    # TRACK, not of a card: personal versus work describes a thread of work rather than an
+    # individual item, so it is declared once per track and every card inherits the track
+    # it resolves to.
+    #
+    # `default` is both the fallback and the scope suppression keys on, and that is one
+    # meaning rather than two: it is the scope a track is in unless it says otherwise.
+    # Left empty the whole dimension is off, so a register that never names a scope
+    # renders exactly as it did before there was one to name.
+    "scope": {
+        "default": "",
+        # Whether a card in the default scope carries NO tag. On, only the exception is
+        # marked and the common case stays quiet; off, every scope is tagged. Which scope
+        # is default and whether suppression applies at all are vocabulary; collapsing the
+        # tag once suppressed is grammar, and that half stays in code.
+        "suppress_default": True,
+        # track name -> scope, for a track no `[[track_rules]]` entry names. A card may
+        # declare `::house-move` outright with no rule behind it, and that track still
+        # needs a scope.
+        "track": {},
+    },
     "card": {
         "template": "- [{check}] {marker}{icons}{text}\n\t\n\t{meta}\n\t{id_comment}",
         # The date link is aliased, and that is not cosmetic. A BARE [[YYYY-MM-DD]] is
@@ -123,6 +146,10 @@ DEFAULTS: dict = {
         # string a corpus can restyle without touching code.
         "track_format": " · \U0001f9f5 {track}",
         "track_tag": "#track/{track}",
+        # Scope reaches the card as a tag and nothing else. The Kanban plugin's search is
+        # what has to match it, and a meta segment would spend a line of the card face
+        # saying out loud what suppression exists to leave unsaid.
+        "scope_tag": "#scope/{scope}",
     },
     "log": {
         "added": "➕",
@@ -183,6 +210,8 @@ class Item:
     tags: list[str] = field(default_factory=list)
     icons: list[str] = field(default_factory=list)
     track: str = ""
+    # Derived from `track`, never read off the line: a card with no track has no scope.
+    scope: str = ""
 
 
 # --- Configuration resolution -----------------------------------------------------
@@ -387,6 +416,32 @@ def infer_track(cfg: dict, haystack: str) -> str:
     return ""
 
 
+def scope_for(cfg: dict, track: str) -> str:
+    """The scope a track belongs to. Resolution is by track NAME, and that is the point.
+
+    A scope keyed on the RULE that matched would put a card declaring `::house-move`
+    outright — with no rule behind it — in a different scope from one the same track was
+    inferred onto. So a rule only contributes its own track's scope to a name-keyed
+    lookup, and `[scope] track.<name>` states one directly for a track no rule names. The
+    direct statement wins, which is what lets a corpus correct a rule's scope without
+    touching the rule.
+
+    A track declaring neither falls to `[scope] default`. A card with NO track gets no
+    scope at all: scope describes a thread of work, and here there is no thread to
+    describe.
+    """
+    if not track:
+        return ""
+    scope = cfg.get("scope") or {}
+    declared = (scope.get("track") or {}).get(track)
+    if declared:
+        return declared
+    for rule in cfg.get("track_rules", []):
+        if rule.get("track") == track and rule.get("scope"):
+            return rule["scope"]
+    return scope.get("default", "")
+
+
 def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tuple[list[Item], bool]:
     """Parse one day file, minting ids for un-stamped items. Returns (items, rewritten).
 
@@ -464,6 +519,7 @@ def parse_day_file(cfg: dict, path: Path, date: str, mutate: bool = True) -> tup
                 tags=tags,
                 icons=icons,
                 track=track,
+                scope=scope_for(cfg, track),
             )
         )
         index = probe
@@ -481,7 +537,25 @@ def render_card(cfg: dict, item: Item) -> str:
     # declaring a track never costs a card one of its vocabulary icons.
     track = card.get("track_format", "").format(track=item.track) if item.track else ""
     track_tag = card.get("track_tag", "").format(track=item.track) if item.track else ""
-    all_tags = item.tags + ([track_tag] if track_tag else [])
+    # Scope is tagged only where saying it earns the space. Suppressing the default scope
+    # is what keeps a board whose tracks are all one scope reading exactly as it did
+    # before the dimension existed — the exception stands out because the rule stays
+    # silent. Which scope is default, and whether to suppress at all, is the corpus's
+    # call; collapsing the tag once suppressed is grammar and lives here.
+    scope_cfg = cfg.get("scope") or {}
+    suppressed = scope_cfg.get("suppress_default", True) and item.scope == scope_cfg.get(
+        "default", ""
+    )
+    scope_tag = (
+        card.get("scope_tag", "").format(scope=item.scope)
+        if item.scope and not suppressed
+        else ""
+    )
+    all_tags = (
+        item.tags
+        + ([track_tag] if track_tag else [])
+        + ([scope_tag] if scope_tag else [])
+    )
     tags = (" " + " ".join(all_tags)) if all_tags else ""
     meta = card["meta"].format(
         date=item.date, group=item.group or item.date, track=track, tags=tags
@@ -920,6 +994,7 @@ def card_json(item: Item, column: str, done: bool) -> dict:
         "group": item.group,
         "column": column,
         "track": item.track,
+        "scope": item.scope,
         "tags": item.tags,
         "done": done,
         "text": item.text,
@@ -1290,7 +1365,8 @@ def main() -> int:
     parser.add_argument(
         "--list",
         action="store_true",
-        help="list cards in board order, filtered by --track / --column / --open. "
+        help="list cards in board order, filtered by --track / --scope / --column / "
+        "--open. "
         "Read-only: writes nothing",
     )
     parser.add_argument(
@@ -1300,6 +1376,11 @@ def main() -> int:
         "item line — plus the card's current column and track. Read-only",
     )
     parser.add_argument("--track", help="with --list, keep only cards on this exact track")
+    parser.add_argument(
+        "--scope",
+        help="with --list, keep only cards in this exact scope — a track's scope, which "
+        "every card on that track inherits",
+    )
     parser.add_argument(
         "--column",
         help="with --list, keep only cards in this column (substring match, emoji optional)",
@@ -1397,6 +1478,8 @@ def main() -> int:
                 continue
             if args.track and item.track != args.track:
                 continue
+            if args.scope and item.scope != args.scope:
+                continue
             rows.append((item, column, done))
 
         if args.json:
@@ -1408,6 +1491,7 @@ def main() -> int:
 
         asked = " · ".join(filter(None, [
             f"track {args.track}" if args.track else "",
+            f"scope {args.scope}" if args.scope else "",
             f"column {wanted}" if wanted else "",
             "open only" if args.open else "",
         ])) or "no filter"

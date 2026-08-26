@@ -8,7 +8,8 @@ verbs answer in a few hundred bytes:
 
   sync_board.py --list --open                    # the standing worklist
   sync_board.py --list --track <name> --open     # one thread of work's slice
-  sync_board.py --list --json                    # id, column, track, tags, done, text
+  sync_board.py --list --scope <name> --open     # one scope's slice (personal vs work)
+  sync_board.py --list --json                    # id, column, track, scope, tags, done, text
   sync_board.py --show <id>                      # the day-file reasoning behind one card
   sync_board.py --status                         # health: last capture, stale lanes
 

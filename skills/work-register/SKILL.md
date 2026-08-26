@@ -100,6 +100,7 @@ Both are strictly read-only — no id is minted, no board written, no ledger tou
 ```bash
 sync_board.py --list                                  # every card, in board order
 sync_board.py --list --track prod-setup --open        # one track's unfinished work
+sync_board.py --list --scope personal --open          # one scope's unfinished work
 sync_board.py --list --column "in progress"          # substring match; emoji optional
 sync_board.py --list --json                          # the programmatic surface
 sync_board.py --show 20260821-03                     # the reasoning behind one card
@@ -107,11 +108,12 @@ sync_board.py --show 20260821-03                     # the reasoning behind one 
 
 **`--list`** prints one line per card — `id · column · 🧵 track · text` — in exactly the
 board's own order (configured `column_order`, then position within the column), so it reads
-as a *subset of the board* rather than a re-sort of it. Filters compose. `--open` drops the
+as a *subset of the board* rather than a re-sort of it. Filters compose — `--track`,
+`--scope`, `--column` and `--open` narrow the same listing. `--open` drops the
 done column and nothing else: **Parked is deferred, not closed.**
 
-`--json` emits an array of `{id, date, group, column, track, tags, done, text}`. Those key
-names are a contract — build on them.
+`--json` emits an array of `{id, date, group, column, track, scope, tags, done, text}`.
+Those key names are a contract — build on them.
 
 **`--show ID`** prints the day-file section behind one card: its `##` heading, the group's
 context prose, and the item line as written, plus the card's live column and track. That is
@@ -197,6 +199,55 @@ Offer `--probe` when the user asks what's still true, takes stock, or has been a
 An unresolved reference (offline, unauthenticated, repo moved) is reported as **unknown**,
 never as done.
 
+## Scope — telling personal work from work work
+
+Personal items and work items share **one board**. A card on two boards would have two
+owners for its column, and the ownership table above only holds because every field has
+one — so the split is **visual and on demand, never structural**. The union view stays the
+default, because it is the common case.
+
+**Scope is a property of a track, not of a card.** Personal versus work describes a thread
+of work rather than an individual item, so it is declared once per track and every card on
+that track inherits it. A card with no track has no scope.
+
+Declared in the register root's `.work-register.toml`:
+
+```toml
+[scope]
+default          = "work"       # the scope a track sits in unless it says otherwise
+suppress_default = true         # cards in that scope carry NO tag
+track.house-move = "personal"   # a track that no [[track_rules]] entry names
+
+[[track_rules]]
+pattern = "roof|gutter|damp"
+track   = "roof-repair"
+scope   = "personal"            # or inline, where a pattern already names the track
+```
+
+Resolution is by track **name** either way, and that is the whole point: a card declaring
+`::house-move` outright — on a track no rule matches — must land in the same scope as one
+the rules infer onto that track. The `[scope] track.<name>` map wins over an inline
+`scope` on a rule, so a corpus can correct a rule's scope without touching the rule.
+
+Scope reaches the board as a `#scope/<name>` tag and nothing else. The Kanban plugin has
+only a transient search box — no saved filters, no scoped views — so a tag on the card
+face is the only persistent handle, and `#scope/personal` in that box is what isolates the
+slice.
+
+**The default scope is suppressed.** With every track being work, the board renders exactly
+as it did before scope existed and only the exception is marked. Set
+`suppress_default = false` to tag both sides instead — one value, no code change — then
+`--refresh` to re-render.
+
+Suppression is a *rendering* choice only, never a resolution one: `--list --scope work`
+still matches a work card that carries no tag, and `--json` always carries the resolved
+`scope`.
+
+```bash
+sync_board.py --list --scope personal --open                 # the personal slice
+sync_board.py --list --scope work --track prod-setup --open  # filters compose
+```
+
 ## Configuration (memory-kit philosophy)
 
 Layers, later winning: **code defaults** ← `~/.config/work-register/config.toml`
@@ -268,6 +319,8 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 | Hand-write the binding and the marker for a new vault | `--init PATH` |
 | Copy an existing vault's 240-line contract into a new one | `--init` writes the thin one; defaults cover the rest |
 | Add a tag rule in Python | Add `[[tag_rules]]` to the corpus config |
+| Stand up a second board for personal work | One board — give the track a `scope` |
+| Tag a card's scope by pattern-matching its text | Scope belongs to the track the card is on |
 | Carry an undated claim from memory | Stamp "as of <date> — re-verify" |
 | Write a bare `BC-5` / `U4` on first use | Attach a slug |
 
