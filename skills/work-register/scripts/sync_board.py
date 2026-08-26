@@ -29,7 +29,7 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
     sync_board.py --status       # register health: last capture, stale lanes
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
-    sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
+    sync_board.py --rebuild --discard-placement   # re-place all from day files
     sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
     sync_board.py --migrate --apply  # …and move them, each keeping its column
     sync_board.py --archive      # trim Done to a recency window; day files untouched
@@ -1830,6 +1830,13 @@ def main() -> int:
         "(use after changing the lane set)",
     )
     parser.add_argument(
+        "--discard-placement",
+        action="store_true",
+        help="with --rebuild, consent to the loss. Required: a rebuild discards every drag "
+        "and every Obsidian block id (^abc123) on the board, and those block ids are live "
+        "[[…#^id]] link targets",
+    )
+    parser.add_argument(
         "--migrate",
         action="store_true",
         help="report cards whose scope now names a different board from the one holding "
@@ -1871,6 +1878,8 @@ def main() -> int:
 
     if args.apply and not args.migrate:
         parser.error("--apply is meaningless on its own; it qualifies --migrate")
+    if args.discard_placement and not args.rebuild:
+        parser.error("--discard-placement is meaningless on its own; it qualifies --rebuild")
     for flag, value in (("--before", args.before), ("--keep", args.keep),
                         ("--include-anchored", args.include_anchored or None)):
         if value is not None and not args.archive:
@@ -1926,6 +1935,27 @@ def main() -> int:
             "of them in one pass, discarding drags, block anchors and staleness. Use "
             "--refresh for a text correction, and --migrate --apply to move a reclassified "
             "track's cards between boards."
+        )
+
+    # And refuse on a SINGLE-board register too, unless the loss is asked for outright.
+    # A rebuild is a re-derivation, not a repair: it discards every drag not yet reconciled
+    # and every Obsidian block id on the board, and those block ids are link targets the
+    # owner made by copying a link to a card. Nothing stopped this before, which is how
+    # eleven live anchors on a real board came to be destroyed by someone reaching for
+    # --rebuild as the obvious way to fix a card's text.
+    #
+    # A gate rather than a rescue. Carrying the anchors through would leave the verb
+    # discarding every column placement while LOOKING safe — a half-rescue that invites
+    # exactly the mistaken reach this refuses. The verb that carries an anchor is --refresh,
+    # and it earns that by keeping the placement too; keeping those two unambiguous is worth
+    # more than making the destructive one survivable.
+    if args.rebuild and not args.discard_placement:
+        raise SystemExit(
+            "work-register: --rebuild re-places every card at its day-file lane, discarding "
+            "every drag not yet reconciled and every Obsidian block anchor (^abc123) on the "
+            "board — and each anchor is a live [[…#^id]] link target. For a text correction "
+            "use --refresh, which re-renders a card's face and keeps both. If a full "
+            "re-derivation really is what you want, say so: --rebuild --discard-placement."
         )
 
     every_day_file = sorted(p for p in register_dir.iterdir() if DAY_FILE.match(p.name))
@@ -2441,12 +2471,20 @@ def main() -> int:
 
     write_boards(cfg, targets, per_board)
 
+    today = datetime.now().astimezone().date().isoformat()
     for item in added:
+        # A rebuild re-places every card, so this loop rewrites entries that already exist.
+        # `since` answers "how long has this sat here", and re-deriving placement does not
+        # make the work younger — stamping the run date over it would turn the next --status
+        # from a report into a reassurance, on exactly the run most likely to need one. The
+        # fallback ladder is `card_since`'s own, so a ledger written before `since` existed
+        # keeps answering what it always did.
+        previous = ledger["placed"].get(item.item_id) or {}
         ledger["placed"][item.item_id] = {
             "day": item.date,
             "column": lane_for(cfg, item.marker, item.done),
             "scope": scope_of(boards, board_for(boards, default_scope, item.scope)),
-            "since": datetime.now().astimezone().date().isoformat(),
+            "since": previous.get("since") or previous.get("day") or today,
         }
     save_ledger(ledger_path, ledger)
 

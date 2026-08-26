@@ -84,7 +84,7 @@ sync_board.py --reconcile    # stamp board status back onto the day files (text 
 sync_board.py --refresh      # re-render card text from the day files; KEEPS placement
 sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
 sync_board.py --status       # register health; --brief prints only the verdict line
-sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
+sync_board.py --rebuild --discard-placement   # re-place everything from day files
 sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
 sync_board.py --migrate --apply   # ...and move them, each keeping its column
 sync_board.py --archive      # trim Done to a recency window; day files untouched
@@ -150,9 +150,12 @@ and will leave the card showing the old wording. `--refresh` re-renders every ca
 from its day-file item while keeping the column and checkbox the board holds, so a text fix
 propagates without disturbing placement.
 
-Reach for `--rebuild` only after the lane set changes, and say plainly that drags are
-lost — it also destroys every Obsidian block anchor and resets each card's staleness
-clock. On a register that renders more than one board it **refuses outright**. Deletions
+Reach for `--rebuild` only after the lane set changes. It **refuses without
+`--discard-placement`**, because it discards every drag not yet reconciled and every
+Obsidian block anchor on the board — and each anchor is a live `[[…#^id]]` link target.
+Never offer it as the repair for a wrong card face; that is `--refresh`, which re-renders
+the face and keeps both. On a register that renders more than one board it refuses
+outright, and the flag does not unlock that. Deletions
 stick via the `.sync-state.json` ledger, so a card the user deleted from a board is never
 resurrected. The boards are disposable — fully reconstructible from the day files.
 
@@ -290,10 +293,10 @@ Only the wrong-board count reaches the `--status --brief` verdict line: it is th
 consequence of a config edit just made, so it is actionable now. A card with no day-file
 source is older drift with no settled disposition, so it stays in the detail.
 
-`--rebuild` **refuses outright** on a register that renders more than one board. It would
-re-partition every card across all of them in one pass, discarding drags, Obsidian block
-anchors and every staleness clock. Use `--refresh` for a text fix and `--migrate --apply`
-for a reclassification.
+`--rebuild` **refuses outright** on a register that renders more than one board — even
+with `--discard-placement`. It would re-partition every card across all of them in one
+pass, and a mis-scoped track would silently relocate its whole slice into a file nobody was
+watching. Use `--refresh` for a text fix and `--migrate --apply` for a reclassification.
 
 Resolution is by track **name** either way, and that is the whole point: a card declaring
 `::house-move` outright — on a track no rule matches — must land in the same scope as one
@@ -466,7 +469,7 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 | Recompute card placement on sync | Additive only — placement is the user's |
 | Hand-edit a day file to update status | Move the card on the board, then `--reconcile` |
 | Re-list yesterday's unfinished item in today's file | It is already on the board |
-| `--rebuild` to "tidy up" | It discards drags and block anchors — `--refresh` if you only fixed text |
+| `--rebuild` to "tidy up" | It refuses without `--discard-placement`, and for good reason — `--refresh` if you only fixed text |
 | `--rebuild` to clear old Done cards | `--archive` — it removes only what the window names, and keeps anchors |
 | Let the Kanban plugin archive completed cards | Its `## Archive` section reads as another column — `--archive` |
 | Delete a Done card from the board to tidy it | `--archive` — a deletion and an archive read differently in the ledger |
