@@ -25,7 +25,13 @@
 
 set -uo pipefail
 
-ENGINE="${HOME}/ai/skills/work-register/scripts/sync_board.py"
+# The engine ships inside this plugin. Claude Code exports CLAUDE_PLUGIN_ROOT when it runs
+# this as a plugin hook; run straight from a checkout — a direct test, or a machine that
+# holds the repo but has not installed the plugin — no such variable exists, so the root
+# falls back to the script's own location. Neither branch makes the engine conditional on
+# plugin context: it stays a plain script invoked by path.
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
+ENGINE="${WORK_REGISTER_ENGINE:-${PLUGIN_ROOT}/skills/work-register/scripts/sync_board.py}"
 MEMORY_KIT_CONFIG="${MEMORY_KIT_CONFIG:-$HOME/.config/memory-kit/config.toml}"
 # Enough to orient a session, few enough to still read as scope rather than wallpaper.
 WORK_REGISTER_PULSE_CARDS="${WORK_REGISTER_PULSE_CARDS:-6}"

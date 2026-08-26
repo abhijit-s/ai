@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ai",
-  "description": "Personal Claude Code plugins — vault-librarian for curating Markdown knowledge vaults.",
+  "description": "Personal Claude Code plugins — vault-librarian for curating Markdown knowledge vaults, work-register for the daily work register and its Kanban board.",
   "owner": {
     "name": "Abhijit Salvi"
   },
@@ -17,6 +17,20 @@
         "source": "git-subdir",
         "url": "https://github.com/abhijit-s/ai.git",
         "path": "plugins/vault-librarian",
+        "ref": "main"
+      }
+    },
+    {
+      "name": "work-register",
+      "description": "A daily work register and its derived Obsidian Kanban board(s), under per-field ownership: day files own a card's existence and text, the board owns its column. Captures a day's intent, syncs additively so a drag is never clobbered, reconciles board status back onto the day files, and answers lookups in a few hundred bytes instead of a whole-board read. Ships a SessionStart pulse that surfaces the session's own open cards.",
+      "author": {
+        "name": "Abhijit Salvi"
+      },
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/abhijit-s/ai.git",
+        "path": "plugins/work-register",
         "ref": "main"
       }
     }

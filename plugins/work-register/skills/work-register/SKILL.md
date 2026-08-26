@@ -77,6 +77,17 @@ falls to `default_column`. `--show-config` reports how many lanes are declared.
 | Existence, text, grouping | Day file | day file → board (`sync` adds new, `--refresh` updates existing) |
 | Status: column + checkbox | Board | board → day file (`--reconcile`, `--move`) |
 
+**Where the engine lives.** It ships inside this plugin. `CLAUDE_PLUGIN_ROOT` is exported
+when the skill runs from the installed plugin; the fallback covers a checkout that has not
+been installed. Resolve it once, then every `sync_board.py` below is `python3 "$WR"`:
+
+```bash
+WR="${CLAUDE_PLUGIN_ROOT:-$HOME/ai/plugins/work-register}/skills/work-register/scripts/sync_board.py"
+```
+
+It is a plain stdlib script with no plugin dependency, so invoking it by path from a
+terminal or another agent works identically.
+
 ```bash
 sync_board.py                # add new cards; never moves an existing one
 sync_board.py --move ID=COL  # relocate a card + reconcile its day file
@@ -508,7 +519,7 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 ## Tests
 
 ```bash
-cd ~/ai/skills/work-register
+cd ~/ai/plugins/work-register/skills/work-register
 python3 -m unittest discover -s tests -t tests          # the suite
 python3 -m unittest discover -s tests -t tests -v       # naming each test
 python3 -m unittest discover -s tests -t tests -p 'test_scope.py'   # one group

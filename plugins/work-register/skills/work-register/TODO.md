@@ -7,8 +7,20 @@ plus a script, so it can **plug into any vault** and keep the board moving on it
 
 Shape:
 
-- **Plugin package** — `plugins/work-register/` with its own `skills/`, `hooks/`, and
-  agents, installed via the marketplace rather than living loose in `~/ai/skills/`.
+- **Plugin package** — **done.** `plugins/work-register/` in the `ai` marketplace, holding
+  the skill, the engine, the tests, the SessionStart pulse and two slash commands
+  (`/work-register:wr-board`, `/work-register:wr-move`). The pulse is registered by the
+  plugin's own `hooks/hooks.json` and was removed from `claude-settings.json` in the same
+  change — registered in both places it would fire twice a session.
+
+  The skill left `~/ai/skills/` rather than being copied there. `~/.claude/skills` is a
+  symlink to that directory, so a copy would offer two `work-register` skills at once; the
+  move is what makes the plugin's the only one.
+
+  Agents are **not** part of this. Nothing in the workflow yet wants a bounded, separately
+  prompted context — the skill plus the read verbs cover the lookups, and an agent would
+  add a hop without adding judgement. Revisit if `--probe` grows into something that has to
+  weigh evidence rather than resolve references.
 - **Vault-agnostic** — **done for the standing-up problem.** `--init PATH` scaffolds a
   register in any vault: a thin, commented `.work-register.toml` at the root, a
   `[register.<name>]` binding merged into the per-machine base config, and the day-file

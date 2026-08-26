@@ -14,7 +14,8 @@ verbs answer in a few hundred bytes:
   sync_board.py --show <id>                      # the day-file reasoning behind one card
   sync_board.py --status                         # health: last capture, stale lanes
 
-The engine lives at ~/ai/skills/work-register/scripts/sync_board.py and resolves its own
+The engine ships in the work-register plugin, at
+~/ai/plugins/work-register/skills/work-register/scripts/sync_board.py, and resolves its own
 register from config — pass no paths.
 
 Two rules that keep the board trustworthy:

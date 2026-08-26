@@ -432,11 +432,6 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/inject-vocab-sessionstart.py",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "~/.dotfiles/ai/hooks/work-register-pulse.sh",
-            "timeout": 12
           }
         ]
       },

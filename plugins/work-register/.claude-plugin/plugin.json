@@ -1,0 +1,20 @@
+{
+  "name": "work-register",
+  "displayName": "Work Register",
+  "version": "1.0.0",
+  "description": "A daily work register and its derived Obsidian Kanban board(s), under per-field ownership: day files own a card's existence and text, the board owns its column. Captures a day's intent, syncs additively so a drag is never clobbered, reconciles board status back onto the day files, and answers lookups in a few hundred bytes instead of a whole-board read.",
+  "author": {
+    "name": "Abhijit Salvi"
+  },
+  "license": "MIT",
+  "keywords": [
+    "kanban",
+    "obsidian",
+    "work-register",
+    "planning",
+    "board",
+    "productivity",
+    "markdown",
+    "vault"
+  ]
+}
