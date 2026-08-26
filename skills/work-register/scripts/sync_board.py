@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Sync per-day work-register files into an Obsidian Kanban board.
+"""Sync per-day work-register files into Obsidian Kanban boards.
 
 Day files are the append-only source of intent; the board owns live status. The sync is
-purely additive — a card whose id is already on the board is never moved or rewritten —
-so dragging cards between columns survives every subsequent run.
+purely additive — a card whose id is already on a board is never moved or rewritten — so
+dragging cards between columns survives every subsequent run.
+
+One capture stream, one board per scope. Day files interleave personal and work items as
+they occur; the render partitions them, so the default board can be kept open with no
+personal work on it. Every card lands on exactly one board — see the note above
+`scope_boards` for why that is a correctness property rather than a convention.
 
 Configuration follows the memory-kit philosophy (ADR-020 / ADR-079):
 
@@ -25,6 +30,8 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --status       # register health: last capture, stale lanes
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
+    sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
+    sync_board.py --migrate --apply  # …and move them, each keeping its column
     sync_board.py --init PATH    # stand a register up in a vault that has never had one
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
 
@@ -66,7 +73,9 @@ LEDGER_NAME = ".sync-state.json"
 # `track` sits on the day-file side with text and grouping, which is why it needs no
 # reconcile path: a declaration the board cannot change is a declaration that cannot drift.
 # `scope` adds no fifth row to this table: it is DERIVED from the track, so it inherits
-# that ownership instead of becoming a field two surfaces could disagree about.
+# that ownership instead of becoming a field two surfaces could disagree about. What it
+# DOES decide is which board renders the card — so the day file picks the file, the board
+# picks the column within it, and the two never contend.
 #
 # The ledger records every id ever placed, which is what lets a DELETED card stay deleted
 # instead of being resurrected on the next sync.
@@ -124,6 +133,11 @@ DEFAULTS: dict = {
         # declare `::house-move` outright with no rule behind it, and that track still
         # needs a scope.
         "track": {},
+        # scope name -> the board that renders it, relative to the register root. The
+        # DEFAULT scope's board is the `board` binding every register already has, so a
+        # register naming no second scope here renders exactly one file, exactly as it
+        # always did. Declaring a scope here creates nothing until a card lands in it.
+        "board": {},
     },
     "card": {
         "template": "- [{check}] {marker}{icons}{text}\n\t\n\t{meta}\n\t{id_comment}",
@@ -338,14 +352,101 @@ def resolve_all(explicit_config: str | None, wanted: str | None) -> tuple[Layere
     return layers, name, register, deep_merge(layers.cfg, register.get("overrides", {}))
 
 
-def register_paths(cfg: dict, register: dict) -> tuple[Path, Path]:
+def register_root(register: dict) -> Path:
     data_root = register.get("data_root")
     if not data_root:
         raise SystemExit("work-register: register declares no data_root")
-    root = Path(os.environ.get("WORK_REGISTER_ROOT", data_root)).expanduser()
+    return Path(os.environ.get("WORK_REGISTER_ROOT", data_root)).expanduser()
+
+
+def register_paths(cfg: dict, register: dict) -> tuple[Path, Path]:
+    """(day-file directory, the DEFAULT scope's board).
+
+    The one-board answer, which is what `--init` proves itself with and what a register
+    declaring no second scope has anyway. Everything that renders wants `scope_boards`.
+    """
+    root = register_root(register)
     register_dir = register.get("register_dir", cfg["paths"]["register_dir"])
     board = register.get("board", cfg["paths"]["board"])
     return root / register_dir, root / board
+
+
+# --- Boards: one capture stream, one board per scope --------------------------------
+#
+# Day files stay one stream — personal and work items interleave there as they actually
+# occur, because that is how a day happens. The RENDER is what separates them, so the
+# default board can be left open all day without personal work on it. A tag cannot do this
+# job: the Kanban plugin offers a transient search box and no saved filters, so "everything
+# except personal" is not expressible, and the board file holds every card regardless.
+#
+# DISJOINTNESS is the property the whole design rests on, not a detail. The board owns a
+# card's column (see the ownership table at the top of this file); a card on two boards
+# would have two owners for that one field, and they would diverge the instant either copy
+# was dragged — precisely the failure this split exists to prevent. Three things make a
+# second placement unreachable rather than merely unlikely:
+#
+#   1. `scope_boards` is a FUNCTION, scope -> exactly one path. A scope cannot name two
+#      boards because a TOML table cannot hold one key twice; two scopes cannot name one
+#      board because that collision is refused at resolution, below.
+#   2. `board_for` is TOTAL. A scope the map does not name — including the empty scope of a
+#      trackless card — falls to the default board, so nothing can fall off every board and
+#      become invisible.
+#   3. Every placement site appends to `board_for(...)` exactly once. The partition is built
+#      by construction, not checked afterwards.
+#
+# "Unreachable" is a claim about this code, though, and a board is a file the owner can also
+# edit. So `parse_boards` still REPORTS an id found on two boards rather than silently
+# keeping one of them.
+
+
+def scope_boards(cfg: dict, register: dict) -> tuple[str, dict[str, Path]]:
+    """(default scope, scope -> board path). The default scope is always present.
+
+    The mapping is VOCABULARY — it names scopes, and scopes are declared in the corpus
+    contract — so it lives there rather than in the per-machine binding. Only `data_root` is
+    genuinely machine-specific; a board path relative to the register root is vault layout,
+    which the corpus is the authority on. The default scope keeps using the register's
+    existing `board` key, which is what makes a one-scope register render the file it
+    always did, under the name it always had.
+    """
+    root = register_root(register)
+    scope_cfg = cfg.get("scope") or {}
+    default_scope = scope_cfg.get("default", "")
+    boards: dict[str, Path] = {
+        default_scope: root / register.get("board", cfg["paths"]["board"])
+    }
+    for scope, relative in (scope_cfg.get("board") or {}).items():
+        if scope == default_scope:
+            raise SystemExit(
+                f"work-register: [scope] board.{scope} names the default scope, whose board "
+                "is already the register's own `board` binding. One file with two "
+                "declarations is the ambiguity this refuses — drop one."
+            )
+        path = root / relative
+        clash = next((s for s, p in boards.items() if p == path), None)
+        if clash is not None:
+            raise SystemExit(
+                f"work-register: [scope] board.{scope} and scope {clash!r} both render to "
+                f"{path}. Two scopes sharing a file cannot be told apart again, so a later "
+                "config change could not know which cards to move — give each its own file."
+            )
+        boards[scope] = path
+    return default_scope, boards
+
+
+def board_for(boards: dict[str, Path], default_scope: str, scope: str) -> Path:
+    """The one board a scope renders to. Total and single-valued — see the note above."""
+    return boards.get(scope) or boards[default_scope]
+
+
+def board_order(boards: dict[str, Path]) -> list[Path]:
+    """Distinct board paths: the default first, then declaration order."""
+    return list(dict.fromkeys(boards.values()))
+
+
+def scope_of(boards: dict[str, Path], path: Path) -> str:
+    """Which scope a board renders. Well defined because the paths are proved distinct."""
+    return next((scope for scope, candidate in boards.items() if candidate == path), "")
 
 
 # --- Day-file parsing -------------------------------------------------------------
@@ -620,6 +721,96 @@ def parse_board(cfg: dict, path: Path) -> tuple[dict[str, list[str]], set[str]]:
     return columns, known
 
 
+def parse_boards(
+    cfg: dict, boards: dict[str, Path]
+) -> tuple[dict[Path, dict[str, list[str]]], set[str], dict[str, Path], list[str]]:
+    """Read every board: (columns per board, all ids, id -> the board holding it, duplicates).
+
+    `duplicates` is the backstop for the disjointness claim above. The partition makes a
+    second placement unreachable through this engine, but a board is a file an owner can
+    edit and a config can be hand-written — so an id found on two boards is reported rather
+    than resolved by quietly keeping whichever was read last.
+    """
+    per_board: dict[Path, dict[str, list[str]]] = {}
+    where: dict[str, Path] = {}
+    duplicates: list[str] = []
+    known: set[str] = set()
+    for path in board_order(boards):
+        columns, ids = parse_board(cfg, path)
+        per_board[path] = columns
+        for item_id in ids:
+            if where.get(item_id, path) != path:
+                duplicates.append(item_id)
+            where[item_id] = path
+        known |= ids
+    return per_board, known, where, sorted(set(duplicates))
+
+
+def merged_columns(per_board: dict[Path, dict[str, list[str]]]) -> dict[str, list[str]]:
+    """Every board's columns folded into one view, for counting and for name matching."""
+    merged: dict[str, list[str]] = {}
+    for columns in per_board.values():
+        for name, cards in columns.items():
+            merged.setdefault(name, []).extend(cards)
+    return merged
+
+
+def boards_status(cfg: dict, per_board: dict[Path, dict[str, list[str]]]) -> dict[str, str]:
+    """id -> its column, across every board. No conflict: a card is on exactly one board."""
+    status: dict[str, str] = {}
+    for columns in per_board.values():
+        status.update(board_status(cfg, columns))
+    return status
+
+
+def boards_cards(
+    cfg: dict, boards: dict[str, Path], per_board: dict[Path, dict[str, list[str]]]
+) -> list[tuple[str, str, bool]]:
+    """Every card, board by board and within a board in its own reading order."""
+    found: list[tuple[str, str, bool]] = []
+    for path in board_order(boards):
+        found += board_cards(cfg, per_board.get(path, {}))
+    return found
+
+
+def boards_to_write(
+    boards: dict[str, Path], default_scope: str, per_board: dict[Path, dict[str, list[str]]]
+) -> list[Path]:
+    """Which boards a full render should write.
+
+    The default board always: it is the register's board, and an absent one is what the
+    first sync exists to create. A scope board only once it holds a card or already exists —
+    so declaring a scope costs nothing until work actually lands in it, and a register whose
+    second scope is still empty has one file rather than an empty second one.
+    """
+    default = boards[default_scope]
+    return [
+        path
+        for path in board_order(boards)
+        if path == default or any(per_board.get(path, {}).values()) or path.is_file()
+    ]
+
+
+def write_boards(
+    cfg: dict, paths, per_board: dict[Path, dict[str, list[str]]]
+) -> list[Path]:
+    """Render exactly the boards named. Callers decide which; see `boards_to_write`."""
+    written: list[Path] = []
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_board(cfg, per_board.get(path, {})), encoding="utf-8")
+        written.append(path)
+    return written
+
+
+def seed_columns(cfg: dict, per_board: dict[Path, dict[str, list[str]]], paths) -> None:
+    """Give each named board the configured flow, so its shape is stable across syncs."""
+    for path in paths:
+        columns = per_board.setdefault(path, {})
+        for column in cfg["board"]["column_order"]:
+            columns.setdefault(column, [])
+
+
 def load_ledger(path: Path) -> dict:
     if not path.is_file():
         return {"schema_version": SCHEMA_VERSION, "placed": {}}
@@ -745,20 +936,28 @@ def resolve_column(cfg: dict, columns: dict[str, list[str]], wanted: str) -> str
     raise SystemExit(f"work-register: {wanted!r} is ambiguous — matches {', '.join(hits)}")
 
 
-def move_card(cfg: dict, columns: dict[str, list[str]], item_id: str, target: str) -> str:
-    """Relocate one card between columns. Returns the column it came from."""
+def pop_card(cfg: dict, columns: dict[str, list[str]], item_id: str) -> tuple[str, str] | None:
+    """Lift one card out of a board: (the card block, the column it came from).
+
+    Separate from `move_card` because a migration lifts a card out of one board and places
+    it on ANOTHER — a different operation from moving it between columns of one, and the
+    only one that crosses files.
+    """
     finder = id_pattern(cfg["ids"]["prefix"])
-    card = origin = None
     for column, cards in columns.items():
         for candidate in list(cards):
             if any(m.group(1) == item_id for m in finder.finditer(candidate)):
-                card, origin = candidate, column
                 cards.remove(candidate)
-                break
-        if card:
-            break
-    if card is None:
+                return candidate, column
+    return None
+
+
+def move_card(cfg: dict, columns: dict[str, list[str]], item_id: str, target: str) -> str:
+    """Relocate one card between columns of ONE board. Returns the column it came from."""
+    lifted = pop_card(cfg, columns, item_id)
+    if lifted is None:
         raise SystemExit(f"work-register: no card with id {item_id} on the board")
+    card, origin = lifted
 
     done = cfg["board"]["done_column"]
     # The checkbox is part of status, so crossing the Done boundary ticks or unticks it.
@@ -770,6 +969,71 @@ def move_card(cfg: dict, columns: dict[str, list[str]], item_id: str, target: st
     columns.setdefault(target, []).append(card)
     return origin
 
+
+# --- Placement drift: a card the render would now file somewhere else ---------------
+#
+# Two flavours, one pass, because they are the same question asked once: is every card on
+# the board that the day files would put it on?
+#
+#   wrong-board — the card's track was reclassified into another scope, so the render names
+#                 a different file from the one holding the card.
+#   no-source   — the day-file item behind the card is gone, so no board claims it at all.
+#
+# Neither is repaired here, and that is the point. Moving a card between FILES is a status
+# write: the board owns the column, and a card that teleports takes its column into a file
+# the owner was not looking at. A sync that quietly relocated cards would be the board
+# rearranging itself, which is exactly what `--probe` already refuses to do for the same
+# reason. So this reports; `--migrate --apply` is the explicit act that moves.
+
+
+def placement_drift(
+    day_items: dict[str, Item],
+    boards: dict[str, Path],
+    default_scope: str,
+    where: dict[str, Path],
+    ledger: dict,
+) -> tuple[list[dict], list[dict]]:
+    """(cards on the wrong board, cards with no day-file item behind them)."""
+    misplaced: list[dict] = []
+    orphaned: list[dict] = []
+    for item_id, path in where.items():
+        item = day_items.get(item_id)
+        if item is None:
+            orphaned.append({"id": item_id, "board": path})
+            continue
+        target = board_for(boards, default_scope, item.scope)
+        if target != path:
+            misplaced.append({
+                "id": item_id,
+                "from": path,
+                "to": target,
+                "scope": item.scope or default_scope,
+                # Dual-read of the ledger: an entry written before boards were split carries
+                # no `scope` key at all, and a card placed then was necessarily in the
+                # default scope — there was nowhere else to be. So a missing key reads as the
+                # default rather than as unknown, and a pre-existing ledger needs no
+                # migration of its own to keep working.
+                "was": (ledger.get("placed", {}).get(item_id) or {}).get("scope", default_scope),
+                "text": item.text,
+            })
+    misplaced.sort(key=lambda entry: entry["id"])
+    orphaned.sort(key=lambda entry: entry["id"])
+    return misplaced, orphaned
+
+
+def report_drift(cfg: dict, misplaced: list[dict], orphaned: list[dict]) -> None:
+    """Print both flavours in the same shape. Reporting only — nothing is moved here."""
+    log = cfg["log"]
+    width = cfg["card"].get("list_text_width", 72)
+    if misplaced:
+        print(f"{log['proposal']} {len(misplaced)} card(s) render to a different board now:")
+        for entry in misplaced:
+            print(f"   {entry['id']}  {entry['from'].name} → {entry['to'].name}")
+            print(f"      scope {entry['was']} → {entry['scope']} · {elide(entry['text'], width)}")
+    if orphaned:
+        print(f"{log['warn']} {len(orphaned)} board card(s) have no day-file item behind them:")
+        for entry in orphaned:
+            print(f"   {entry['id']}  on {entry['board'].name} — no source; left where it is")
 
 
 # --- Probe: resolve the references a card cites, and report what they say ----------
@@ -1108,6 +1372,28 @@ column = "🔴 Blocked"
 # [[track_rules]]
 # pattern = "\\\\bci\\\\b|required check|ruleset"
 # track   = "platform-devex"
+
+# Scope — what tells personal work from work work. Day files stay ONE stream, because that
+# is how a day happens; the render is what separates them, writing one board per scope so
+# the default board can be left open with no personal work on it.
+#
+# Scope belongs to a TRACK, not to a card: personal versus work describes a thread of work
+# rather than an individual item, so it is declared once and every card on that track
+# inherits it. A card with no track falls to the default scope's board — nothing is ever
+# left off every board.
+#
+# Every card renders to exactly one board. That is the property the split rests on: the
+# board owns a card's column, so a card on two boards would have two owners for one field.
+#
+# Declaring a scope here creates no file until a card in it exists. Reclassifying a track
+# afterwards moves its cards BETWEEN files, which is a status write — `--migrate` reports
+# it, `--migrate --apply` performs it, and sync never does it on its own.
+#
+# [scope]
+# default          = "work"    # the scope a track sits in unless it says otherwise
+# suppress_default = true      # cards in that scope carry no #scope/… tag
+# track.house-move = "personal"
+# board.personal   = "PERSONAL-BOARD.md"   # relative to this vault root
 '''
 
 INIT_README = '''# Work register — day files
@@ -1414,7 +1700,22 @@ def main() -> int:
         help="discard the board and re-place every item at its day-file lane; DISCARDS drags "
         "(use after changing the lane set)",
     )
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="report cards whose scope now names a different board from the one holding "
+        "them, and board cards with no day-file item. Reports only — pass --apply to move",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="with --migrate, actually relocate the reported cards between boards, keeping "
+        "each card's column. Without it --migrate changes nothing",
+    )
     args = parser.parse_args()
+
+    if args.apply and not args.migrate:
+        parser.error("--apply is meaningless on its own; it qualifies --migrate")
 
     # Before resolution, not after: on a machine with no base config there is no register to
     # resolve yet, and writing one is the whole point of the verb.
@@ -1436,14 +1737,33 @@ def main() -> int:
         print(f"   lanes: {len(cfg['board'].get('lanes', []))}"
               f" · vocabulary rules: {len(cfg.get('tag_rules', []))}"
               f" · track rules: {len(cfg.get('track_rules', []))}")
+        default_scope, boards = scope_boards(cfg, register)
+        print(f"   scope default: {default_scope or '(none)'}"
+              f" · boards: {len(board_order(boards))}")
         return 0
 
-    register_dir, board_path = register_paths(cfg, register)
+    register_dir, _ = register_paths(cfg, register)
+    default_scope, boards = scope_boards(cfg, register)
 
     if not register_dir.is_dir():
         raise SystemExit(f"work-register: register dir not found: {register_dir}")
 
-    day_files = sorted(p for p in register_dir.iterdir() if DAY_FILE.match(p.name))
+    # Refuse before a single id is minted. --rebuild re-places every card from scratch, which
+    # on a split register means re-partitioning them across every board at once: every
+    # Obsidian block anchor is lost, every staleness clock resets, and one mis-scoped track
+    # silently relocates its whole slice into a file nobody was watching. Redesigning the
+    # verb is a separate question; refusing to run it blind is not.
+    if args.rebuild and len(board_order(boards)) > 1:
+        raise SystemExit(
+            "work-register: --rebuild refuses on a register that renders "
+            f"{len(board_order(boards))} boards. It would re-partition every card across all "
+            "of them in one pass, discarding drags, block anchors and staleness. Use "
+            "--refresh for a text correction, and --migrate --apply to move a reclassified "
+            "track's cards between boards."
+        )
+
+    every_day_file = sorted(p for p in register_dir.iterdir() if DAY_FILE.match(p.name))
+    day_files = every_day_file
     if args.since:
         day_files = [p for p in day_files if p.stem >= args.since]
     if not day_files:
@@ -1452,20 +1772,32 @@ def main() -> int:
 
     ledger_path = register_dir / LEDGER_NAME
     ledger = load_ledger(ledger_path)
-    columns, on_board = parse_board(cfg, board_path)
+    per_board, on_board, where, duplicated = parse_boards(cfg, boards)
     # --brief exists to be consumed by a hook, so it must emit exactly one line; --json is
     # a machine surface, so its stdout must be nothing but the document.
     if not (args.status and args.brief) and not args.json:
-        print(f"{log['register']} register: {name}  {log['board']} board: {board_path}")
+        listed = board_order(boards)
+        if len(listed) == 1:
+            print(f"{log['register']} register: {name}  {log['board']} board: {listed[0]}")
+        else:
+            print(f"{log['register']} register: {name}  {log['board']} {len(listed)} boards:")
+            for scope, path in boards.items():
+                print(f"   {scope or '(no scope)'}: {path}")
+        if duplicated:
+            # The disjointness backstop. Reachable only by hand-editing a board, but a wrong
+            # answer here is two owners for one card's column, so it is said out loud.
+            print(f"   {log['warn']} {len(duplicated)} card id(s) appear on more than one "
+                  f"board: {', '.join(duplicated)}")
 
     # --- list: the read surface — filtered cards, in the board's own order -------
     if args.list:
         items = day_file_items(cfg, day_files)
-        wanted = resolve_column(cfg, columns, args.column) if args.column else None
+        merged = merged_columns(per_board)
+        wanted = resolve_column(cfg, merged, args.column) if args.column else None
         done_column = cfg["board"]["done_column"]
 
         rows, orphans = [], 0
-        for item_id, column, done in board_cards(cfg, columns):
+        for item_id, column, done in boards_cards(cfg, boards, per_board):
             item = items.get(item_id)
             if item is None:
                 orphans += 1
@@ -1518,7 +1850,7 @@ def main() -> int:
             return 1
         path, section, entry = located
         item = day_file_items(cfg, day_files).get(target)
-        column = board_status(cfg, columns).get(target) or "(not on the board)"
+        column = boards_status(cfg, per_board).get(target) or "(not on the board)"
         track = f" · {log['track']} {item.track}" if item and item.track else ""
         print(f"   {target} · {column}{track}")
         print(f"   {log['register']} {path.name} — {section['group'] or '(no heading)'}")
@@ -1533,27 +1865,37 @@ def main() -> int:
     # --- move: relocate cards by id (the /-command surface) ----------------------
     if args.move:
         moved = []
+        # A move is between COLUMNS of one board. Which board is not the caller's to pick:
+        # it is wherever the card already is, because scope decides the file and a move is
+        # not a scope change. Crossing files is `--migrate`, and only after a config edit.
+        touched: set[Path] = set()
         for spec in args.move:
             if "=" not in spec:
                 raise SystemExit(f"work-register: --move expects ID=COLUMN, got {spec!r}")
             item_id, wanted = spec.split("=", 1)
+            item_id = item_id.strip()
+            path = where.get(item_id)
+            if path is None:
+                raise SystemExit(f"work-register: no card with id {item_id} on any board")
+            columns = per_board[path]
             target = resolve_column(cfg, columns, wanted)
-            origin = move_card(cfg, columns, item_id.strip(), target)
-            moved.append((item_id.strip(), origin, target))
-            print(f"   {log['moved']} {item_id.strip()}: {origin} → {target}")
-        for column in cfg["board"]["column_order"]:
-            columns.setdefault(column, [])
+            origin = move_card(cfg, columns, item_id, target)
+            touched.add(path)
+            moved.append((item_id, origin, target, path))
+            print(f"   {log['moved']} {item_id}: {origin} → {target}")
+        seed_columns(cfg, per_board, touched)
         if args.dry_run:
             print(f"{log['dry_run']} dry run — {len(moved)} move(s) not written")
             return 0
-        board_path.write_text(render_board(cfg, columns), encoding="utf-8")
-        for item_id, _, target in moved:
+        write_boards(cfg, sorted(touched), per_board)
+        for item_id, _, target, path in moved:
             entry = ledger["placed"].setdefault(item_id, {})
             entry["column"] = target
+            entry["scope"] = scope_of(boards, path)
             entry["since"] = datetime.now().astimezone().date().isoformat()
         save_ledger(ledger_path, ledger)
         # A move IS a status change, so carry it straight back to the day files.
-        status = board_status(cfg, columns)
+        status = boards_status(cfg, per_board)
         touched = sum(
             len(reconcile_day_file(cfg, path, status, mutate=True)) for path in day_files
         )
@@ -1562,7 +1904,7 @@ def main() -> int:
 
     # --- status: is the register still telling the truth? ------------------------
     if args.status:
-        placement = board_status(cfg, columns)
+        placement = boards_status(cfg, per_board)
         watch = set(cfg["status"].get("watch_columns") or []) or (
             set(cfg["board"]["column_order"])
             - {cfg["board"]["done_column"], cfg["probe"].get("propose_column") or ""}
@@ -1581,11 +1923,23 @@ def main() -> int:
                 stale.append((age, item_id, column))
         stale.sort(reverse=True)
 
+        # Scanned unfiltered: a --since window would report every card outside it as having
+        # no day-file item, which is a false alarm rather than a finding.
+        misplaced, orphaned = placement_drift(
+            day_file_items(cfg, every_day_file), boards, default_scope, where, ledger
+        )
+
         problems = []
         if capture_age is not None and capture_age >= cfg["status"]["capture_gap_days"]:
             problems.append(f"last capture {capture_age}d ago")
         if stale:
             problems.append(f"{len(stale)} card(s) stale >{cfg['status']['stale_days']}d")
+        # Only the wrong-board flavour reaches the verdict line. It is a consequence of a
+        # config edit the owner just made, so it is actionable now and it is new. A card with
+        # no day-file source is older drift with no settled disposition yet, so it is
+        # reported in the detail rather than escalated into a one-line session nag.
+        if misplaced:
+            problems.append(f"{len(misplaced)} card(s) on the wrong board")
         verdict = (
             f"{log['warn']} work-register [{name}]: " + " · ".join(problems)
             if problems else f"{log['ok']} work-register [{name}]: current"
@@ -1593,15 +1947,72 @@ def main() -> int:
         print(verdict)
         if args.brief:
             return 0
-        counts = {c: len(v) for c, v in columns.items() if v}
+        counts = {c: len(v) for c, v in merged_columns(per_board).items() if v}
         print("   " + " · ".join(f"{c} {n}" for c, n in counts.items()))
         for age, item_id, column in stale[:10]:
             print(f"   {log['warn']} {item_id} — {age}d in {column}")
+        if misplaced or orphaned:
+            report_drift(cfg, misplaced, orphaned)
+            if misplaced:
+                print("   move them with: sync_board.py --migrate --apply")
+        return 0
+
+    # --- migrate: a card the render would now file on a different board ----------
+    #
+    # A scope change is a config edit, and its consequence is that cards move between FILES.
+    # That is a status write, so it never happens as a side effect: not on sync, not on
+    # refresh, not on reconcile. It takes this verb, and then it takes --apply as well —
+    # two deliberate acts, because the failure being guarded against is a card quietly
+    # leaving the board the owner was looking at.
+    if args.migrate:
+        # Unfiltered for the same reason --status is: a --since window turns every card
+        # outside it into a phantom no-source orphan.
+        misplaced, orphaned = placement_drift(
+            day_file_items(cfg, every_day_file), boards, default_scope, where, ledger
+        )
+        if not misplaced and not orphaned:
+            print(f"{log['ok']} every card is on the board its scope names")
+            return 0
+        report_drift(cfg, misplaced, orphaned)
+
+        if not misplaced:
+            print(f"\n{log['warn']} nothing to migrate — a card with no day-file item has no "
+                  "scope to move it to, so it stays where it is")
+            return 0
+        if not args.apply:
+            print(f"\n{log['proposal']} nothing has been moved. Each card keeps its column; "
+                  "only the file rendering it changes.")
+            print("   apply with:\n   sync_board.py --migrate --apply")
+            return 0
+        if args.dry_run:
+            print(f"\n{log['dry_run']} dry run — {len(misplaced)} card(s) not moved")
+            return 0
+
+        touched: set[Path] = set()
+        for entry in misplaced:
+            lifted = pop_card(cfg, per_board[entry["from"]], entry["id"])
+            if lifted is None:
+                continue
+            card, column = lifted
+            # The column travels with the card. It is the board's field and this is not a
+            # status change — only a change of which file holds that status.
+            per_board.setdefault(entry["to"], {}).setdefault(column, []).append(card)
+            touched |= {entry["from"], entry["to"]}
+            placed = ledger["placed"].setdefault(entry["id"], {})
+            placed["column"] = column
+            placed["scope"] = scope_of(boards, entry["to"])
+            print(f"   {log['moved']} {entry['id']}: {entry['from'].name} → "
+                  f"{entry['to'].name}  [{column}]")
+        seed_columns(cfg, per_board, touched)
+        written = write_boards(cfg, sorted(touched), per_board)
+        save_ledger(ledger_path, ledger)
+        print(f"{log['done']} {len(misplaced)} card(s) migrated · "
+              f"{len(written)} board(s) written")
         return 0
 
     # --- probe: what do the cards' own references say now? -----------------------
     if args.probe:
-        placement = board_status(cfg, columns)
+        placement = boards_status(cfg, per_board)
         findings = probe_cards(cfg, day_files, placement)
         target = cfg["probe"].get("propose_column") or cfg["board"]["done_column"]
         proposals, advisory, unresolved = [], [], []
@@ -1654,7 +2065,7 @@ def main() -> int:
     # Text is the day file's field, so a correction there must reach the board. Placement
     # is the board's, so it is read back and re-applied rather than recomputed.
     if args.refresh:
-        placement = board_status(cfg, columns)
+        placement = boards_status(cfg, per_board)
         rendered: dict[str, str] = {}
         for path in day_files:
             items, _ = parse_day_file(cfg, path, path.stem, mutate=False)
@@ -1663,37 +2074,42 @@ def main() -> int:
                     rendered[item.item_id] = render_card(cfg, item)
 
         changed = 0
-        for column, cards in columns.items():
-            for index, card in enumerate(list(cards)):
-                ids = [m.group(1) for m in id_pattern(cfg["ids"]["prefix"]).finditer(card)]
-                if len(ids) != 1 or ids[0] not in rendered:
-                    continue
-                fresh = rendered[ids[0]]
-                # The checkbox belongs to the board, so keep whatever it says today.
-                if card.lstrip().startswith("- [x]"):
-                    fresh = re.sub(r"^- \[ \]", "- [x]", fresh, count=1)
-                # So does an Obsidian block id (^abc123): the owner created it by copying
-                # a link to that card, and re-rendering must not break the link.
-                anchor = re.match(r"^[^\n]*?\s(\^[A-Za-z0-9-]+)\s*$", card.split("\n")[0])
-                if anchor and anchor.group(1) not in fresh:
-                    head, sep, tail = fresh.partition("\n")
-                    fresh = f"{head} {anchor.group(1)}{sep}{tail}"
-                if fresh != card:
-                    cards[index] = fresh
-                    changed += 1
-                    print(f"   {log['refreshed']} {ids[0]} re-rendered in {column}")
+        # Placement is preserved per board as well as per column: a refresh re-renders a
+        # card's FACE, and which file holds it is not part of the face. A card whose scope
+        # changed therefore stays put here and is reported by --migrate instead.
+        touched: set[Path] = set()
+        for board_path in board_order(boards):
+            for column, cards in per_board.get(board_path, {}).items():
+                for index, card in enumerate(list(cards)):
+                    ids = [m.group(1) for m in id_pattern(cfg["ids"]["prefix"]).finditer(card)]
+                    if len(ids) != 1 or ids[0] not in rendered:
+                        continue
+                    fresh = rendered[ids[0]]
+                    # The checkbox belongs to the board, so keep whatever it says today.
+                    if card.lstrip().startswith("- [x]"):
+                        fresh = re.sub(r"^- \[ \]", "- [x]", fresh, count=1)
+                    # So does an Obsidian block id (^abc123): the owner created it by copying
+                    # a link to that card, and re-rendering must not break the link.
+                    anchor = re.match(r"^[^\n]*?\s(\^[A-Za-z0-9-]+)\s*$", card.split("\n")[0])
+                    if anchor and anchor.group(1) not in fresh:
+                        head, sep, tail = fresh.partition("\n")
+                        fresh = f"{head} {anchor.group(1)}{sep}{tail}"
+                    if fresh != card:
+                        cards[index] = fresh
+                        changed += 1
+                        touched.add(board_path)
+                        print(f"   {log['refreshed']} {ids[0]} re-rendered in {column}")
 
         if args.dry_run:
             print(f"{log['dry_run']} dry run — would re-render {changed} card(s)")
             return 0
-        if changed:
-            board_path.write_text(render_board(cfg, columns), encoding="utf-8")
+        write_boards(cfg, sorted(touched), per_board)
         print(f"{log['done']} {changed} card(s) re-rendered · placement preserved")
         return 0
 
     # --- reconcile: board → day files, status only -------------------------------
     if args.reconcile:
-        status = board_status(cfg, columns)
+        status = boards_status(cfg, per_board)
         total = 0
         for path in day_files:
             for item_id, column, before, after in reconcile_day_file(
@@ -1713,51 +2129,67 @@ def main() -> int:
     # --- rebuild: discard the board, re-place from day files ---------------------
     if args.rebuild:
         print(f"   {log['rebuild']} rebuilding — existing card placement is discarded")
-        columns, on_board = {}, set()
+        per_board, on_board, where = {boards[default_scope]: {}}, set(), {}
 
-    # --- sync: day files → board, additive --------------------------------------
-    # A card is skipped if it is on the board OR was ever placed (the ledger), so
+    # --- sync: day files → boards, additive -------------------------------------
+    # A card is skipped if it is already on a board OR was ever placed (the ledger), so
     # deleting a card from the board keeps it deleted instead of resurrecting it.
     known = on_board | (set() if args.rebuild else set(ledger["placed"]))
     added: list[Item] = []
     stamped: list[str] = []
+    seen: dict[str, Item] = {}
     resurrect_guard = sorted(set(ledger["placed"]) - on_board) if not args.rebuild else []
+    split = len(board_order(boards)) > 1
 
     for path in day_files:
         items, rewritten = parse_day_file(cfg, path, path.stem, mutate=not args.dry_run)
         if rewritten:
             stamped.append(path.name)
         for item in items:
+            seen[item.item_id] = item
             if item.item_id in known:
                 continue
-            columns.setdefault(lane_for(cfg, item.marker, item.done), []).append(
-                render_card(cfg, item)
-            )
+            # The one placement site. `board_for` is total and single-valued, so this
+            # appends each card to exactly one board — the partition is built here rather
+            # than checked afterwards.
+            target = board_for(boards, default_scope, item.scope)
+            per_board.setdefault(target, {}).setdefault(
+                lane_for(cfg, item.marker, item.done), []
+            ).append(render_card(cfg, item))
             known.add(item.item_id)
             added.append(item)
 
-    for column in cfg["board"]["column_order"]:
-        columns.setdefault(column, [])
+    targets = boards_to_write(boards, default_scope, per_board)
+    seed_columns(cfg, per_board, targets)
 
     prefix = log["dry_run"] if args.dry_run else log["added"]
     for item in added:
         icons = "".join(item.icons)
         lane = lane_for(cfg, item.marker, item.done)
-        print(f"   {prefix} [{lane}] {item.item_id} {icons} {item.text[:64]}")
+        # Which board a card landed on is only worth saying when there is more than one.
+        onto = f" ⇢ {item.scope or default_scope}" if split else ""
+        print(f"   {prefix} [{lane}]{onto} {item.item_id} {icons} {item.text[:64]}")
     if resurrect_guard:
         print(f"   {log['deleted']} {len(resurrect_guard)} card(s) deleted from the board stay deleted")
+
+    # Detected, never applied: a scope change moves cards between files, which is a status
+    # write. Sync's job is to add what is new, so it says what it found and stops.
+    misplaced, _ = placement_drift(seen, boards, default_scope, where, ledger)
+    if misplaced:
+        print(f"   {log['warn']} {len(misplaced)} card(s) now render to a different board — "
+              "`--migrate` to see them; nothing has been moved")
 
     if args.dry_run:
         print(f"{log['dry_run']} dry run — would add {len(added)} card(s); nothing written")
         return 0
 
-    board_path.parent.mkdir(parents=True, exist_ok=True)
-    board_path.write_text(render_board(cfg, columns), encoding="utf-8")
+    write_boards(cfg, targets, per_board)
 
     for item in added:
         ledger["placed"][item.item_id] = {
             "day": item.date,
             "column": lane_for(cfg, item.marker, item.done),
+            "scope": scope_of(boards, board_for(boards, default_scope, item.scope)),
             "since": datetime.now().astimezone().date().isoformat(),
         }
     save_ledger(ledger_path, ledger)

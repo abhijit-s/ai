@@ -1,6 +1,7 @@
 The work register is two surfaces: per-day files in the register directory are the SOURCE,
-and WORK-REGISTER.md is a DERIVED Kanban board. Never hand-edit the board — it is
-regenerated, so an edit is lost on the next sync.
+and the Kanban board is DERIVED. Never hand-edit a board — it is regenerated, so an edit is
+lost on the next sync. A register may render one board per scope (work, personal, …); the
+day files stay one stream and `--list` is the union across every board.
 
 To learn what is on the plate, query the engine. Do NOT read WORK-REGISTER.md (~13KB,
 every card including the closed ones) or a day file (~15KB) to answer a question these
@@ -25,3 +26,5 @@ Two rules that keep the board trustworthy:
 
 2. Status is the owner's call. `--probe` proposes movements from a card's own references
    and never applies them. Do not silently relocate a card to make the board look tidy.
+   Moving a card between BOARDS is a scope change, not a drag: edit the track's scope in
+   the corpus config, then `--migrate` to report it and `--migrate --apply` to perform it.

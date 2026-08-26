@@ -1,6 +1,6 @@
 ---
 name: work-register
-description: Maintain AND query the daily work register and its Obsidian Kanban board. Use for capture — "note this in my work register", "add to the register", "sync the board", or a dictated day's plan — and equally for lookup, whenever the answer lives on the board rather than in the code: "what's on my plate", "what's on for tomorrow", "what's in progress", "am I blocked on anything", "what's still open", "where did we get to on X", "what's stale", "take stock of the register", or any question about a card, a lane, or one track's slice of work. Also for moving a card between lanes, reconciling drags made in the Obsidian UI, and standing a register up in a new vault. Covers per-day files as the source, the derived board, lane routing, the tag/icon and track vocabulary, and the read verbs that answer a lookup in a few hundred bytes rather than a 13KB board read.
+description: Maintain AND query the daily work register and its Obsidian Kanban board(s). Use for capture — "note this in my work register", "add to the register", "sync the board", or a dictated day's plan — and equally for lookup, whenever the answer lives on the board rather than in the code: "what's on my plate", "what's on for tomorrow", "what's in progress", "am I blocked on anything", "what's still open", "where did we get to on X", "what's stale", "take stock of the register", or any question about a card, a lane, or one track's slice of work. Also for moving a card between lanes, reconciling drags made in the Obsidian UI, and standing a register up in a new vault. Covers per-day files as the source, the derived board(s) — one per scope, so the default view can exclude personal work — lane routing, the tag/icon and track vocabulary, and the read verbs that answer a lookup in a few hundred bytes rather than a 13KB board read.
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -15,7 +15,7 @@ umbrella `RESUME.md` own live track status, and the register points at them.
 | Surface | Path | Role |
 |---|---|---|
 | **Day file** | `<register_dir>/YYYY-MM-DD.md` | **Source.** One day's intent. Content is append-only; only the status field is ever rewritten, by `--reconcile`. |
-| **Board** | `<board>` | **Derived.** Kanban view; owns live status. |
+| **Board(s)** | `<board>`, plus one per declared scope | **Derived.** Kanban view; owns live status. Scope decides which board renders a card; the board decides its column. |
 
 Both resolve from config — never hardcode a path. `--show-config` prints the layers.
 
@@ -85,6 +85,8 @@ sync_board.py --refresh      # re-render card text from the day files; KEEPS pla
 sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
 sync_board.py --status       # register health; --brief prints only the verdict line
 sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
+sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
+sync_board.py --migrate --apply   # ...and move them, each keeping its column
 sync_board.py --init PATH    # stand a register up in a vault that has never had one
 sync_board.py --dry-run      # show what would happen, write nothing
 sync_board.py --show-config  # resolved config layers
@@ -107,9 +109,11 @@ sync_board.py --show 20260821-03                     # the reasoning behind one 
 ```
 
 **`--list`** prints one line per card — `id · column · 🧵 track · text` — in exactly the
-board's own order (configured `column_order`, then position within the column), so it reads
-as a *subset of the board* rather than a re-sort of it. Filters compose — `--track`,
-`--scope`, `--column` and `--open` narrow the same listing. `--open` drops the
+boards' own order (default board first, then each declared scope's; within a board the
+configured `column_order`, then position within the column), so it reads as a *subset of
+the boards* rather than a re-sort of them. **It is the union view** — the one surface that
+spans every scope, and read-only, which is why there is no combined board. Filters compose
+— `--track`, `--scope`, `--column` and `--open` narrow the same listing. `--open` drops the
 done column and nothing else: **Parked is deferred, not closed.**
 
 `--json` emits an array of `{id, date, group, column, track, scope, tags, done, text}`.
@@ -120,8 +124,8 @@ context prose, and the item line as written, plus the card's live column and tra
 the *reasoning*, which the card face necessarily drops. An unknown id is a failed lookup —
 it reports to stderr and exits non-zero.
 
-**Never read the whole board or a whole day file to answer a question these answer.** The
-board is ~13 KB and a day file ~15 KB; one track's open cards are a few hundred bytes.
+**Never read a whole board or a whole day file to answer a question these answer.** A board
+is ~13 KB and a day file ~15 KB; one track's open cards are a few hundred bytes.
 
 `track` is what makes this worth having: it is the field that partitions the board by *who
 is asking*. A card declares it with `::name` in the item text or its `##` heading, or
@@ -146,9 +150,10 @@ from its day-file item while keeping the column and checkbox the board holds, so
 propagates without disturbing placement.
 
 Reach for `--rebuild` only after the lane set changes, and say plainly that drags are
-lost. Deletions stick via the `.sync-state.json` ledger, so a card the user deleted from
-the board is never resurrected. The board is disposable — fully reconstructible from the
-day files.
+lost — it also destroys every Obsidian block anchor and resets each card's staleness
+clock. On a register that renders more than one board it **refuses outright**. Deletions
+stick via the `.sync-state.json` ledger, so a card the user deleted from a board is never
+resurrected. The boards are disposable — fully reconstructible from the day files.
 
 **Carry-forward is the board's job.** A card still in Next next week stays on the board;
 do not re-list it in a new day file. A day file records what was *added* that day.
@@ -201,14 +206,36 @@ never as done.
 
 ## Scope — telling personal work from work work
 
-Personal items and work items share **one board**. A card on two boards would have two
-owners for its column, and the ownership table above only holds because every field has
-one — so the split is **visual and on demand, never structural**. The union view stays the
-default, because it is the common case.
+**One capture stream, many rendered boards.** Day files stay a single stream, because that
+is how a day happens — personal and work items interleave as they occur. The **render** is
+what separates them: sync partitions cards by scope and writes one board per scope, so the
+default board can be left open all day with no personal work on it.
+
+A tag cannot do this job. The Kanban plugin has a transient search box and no saved
+filters, so "everything *except* personal" is not expressible — and the board file holds
+every card regardless of what is typed in the box. It is a render concern, so the render is
+where it is solved.
+
+**Every card renders to exactly one board.** That is the load-bearing property, not a
+detail. The board owns a card's column; a card on two boards would have two owners for that
+one field, and they would diverge the instant either copy was dragged. Three things make a
+second placement unreachable rather than merely unlikely:
+
+| Property | Why it holds |
+|---|---|
+| scope → board is a **function** | a scope names one board; two scopes naming one file is refused at config resolution |
+| it is **total** | a scope the map does not name — including the empty scope of a trackless card — falls to the default board, so nothing falls off every board |
+| there is **one placement site** | sync appends each card to `board_for(...)` once, so the partition is built by construction rather than checked afterwards |
+
+And because that is a claim about code while a board is a file you can also edit, an id
+found on two boards is **reported**, never silently resolved by keeping one.
+
+**The union is `--list`, not a board.** It already spans every board and is read-only, so it
+cannot own placement. There is no combined board and there should not be one.
 
 **Scope is a property of a track, not of a card.** Personal versus work describes a thread
 of work rather than an individual item, so it is declared once per track and every card on
-that track inherits it. A card with no track has no scope.
+that track inherits it. A card with no track falls to the default scope's board.
 
 Declared in the register root's `.work-register.toml`:
 
@@ -217,12 +244,55 @@ Declared in the register root's `.work-register.toml`:
 default          = "work"       # the scope a track sits in unless it says otherwise
 suppress_default = true         # cards in that scope carry NO tag
 track.house-move = "personal"   # a track that no [[track_rules]] entry names
+board.personal   = "PERSONAL-BOARD.md"   # relative to the register root
 
 [[track_rules]]
 pattern = "roof|gutter|damp"
 track   = "roof-repair"
 scope   = "personal"            # or inline, where a pattern already names the track
 ```
+
+**Why `board.<scope>` sits in the corpus contract and not the per-machine config:** it is
+vocabulary. It names scopes, and scopes are declared in that same file. Only `data_root` is
+genuinely machine-specific — `register_dir` and `board` are vault-root-relative layout that
+merely happens to live in the binding. The **default scope keeps using the register's
+existing `board` key**, which is what makes a register naming no second scope render
+exactly the file it always did, under the name it always had.
+
+**Declaring a scope creates nothing until a card lands in it.** An unused scope renders no
+file, so the map can be written ahead of the work.
+
+### Reclassifying a track — `--migrate`
+
+Changing a track's scope means its cards must move **between files**. That is a status
+write: the board owns the column, and a card that teleports takes its column into a file
+you were not looking at. So it never happens as a side effect — not on `sync`, not on
+`--refresh`, not on `--reconcile`.
+
+```bash
+sync_board.py --migrate            # report: which cards now render to a different board
+sync_board.py --migrate --apply    # …and move them, each keeping its column
+```
+
+Two deliberate acts, not one: the verb, and then `--apply`. Plain `sync` and `--status`
+**notice** the drift and say so, but move nothing.
+
+`--migrate` reports two flavours through the same seam, because they are one question asked
+once — *is every card on the board the day files would put it on?*
+
+| Flavour | Meaning | What happens |
+|---|---|---|
+| **wrong-board** | the track was reclassified, so the render names another file | `--apply` moves it, column intact |
+| **no-source** | the day-file item behind the card is gone | reported only — with no source there is no scope to move it to |
+
+Only the wrong-board count reaches the `--status --brief` verdict line: it is the
+consequence of a config edit just made, so it is actionable now. A card with no day-file
+source is older drift with no settled disposition, so it stays in the detail.
+
+`--rebuild` **refuses outright** on a register that renders more than one board. It would
+re-partition every card across all of them in one pass, discarding drags, Obsidian block
+anchors and every staleness clock. Use `--refresh` for a text fix and `--migrate --apply`
+for a reclassification.
 
 Resolution is by track **name** either way, and that is the whole point: a card declaring
 `::house-move` outright — on a track no rule matches — must land in the same scope as one
@@ -310,7 +380,7 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 | Recompute card placement on sync | Additive only — placement is the user's |
 | Hand-edit a day file to update status | Move the card on the board, then `--reconcile` |
 | Re-list yesterday's unfinished item in today's file | It is already on the board |
-| `--rebuild` to "tidy up" | It discards the user's drags — `--refresh` if you only fixed text |
+| `--rebuild` to "tidy up" | It discards drags and block anchors — `--refresh` if you only fixed text |
 | Leaving a corrected day-file item stale on the board | `--refresh` |
 | Read the whole board to find a few cards | `--list --track X --open` |
 | Guess why a card exists from its face | `--show ID` — the day file holds the reasoning |
@@ -319,7 +389,9 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 | Hand-write the binding and the marker for a new vault | `--init PATH` |
 | Copy an existing vault's 240-line contract into a new one | `--init` writes the thin one; defaults cover the rest |
 | Add a tag rule in Python | Add `[[tag_rules]]` to the corpus config |
-| Stand up a second board for personal work | One board — give the track a `scope` |
+| Hand-write a second board for personal work | Give the track a `scope`, and the scope a `board` — sync renders it |
+| Build a combined board spanning every scope | `--list` already spans them, and is read-only so it cannot own placement |
+| Move a card between boards by editing the files | Change the track's scope, then `--migrate --apply` |
 | Tag a card's scope by pattern-matching its text | Scope belongs to the track the card is on |
 | Carry an undated claim from memory | Stamp "as of <date> — re-verify" |
 | Write a bare `BC-5` / `U4` on first use | Attach a slug |
