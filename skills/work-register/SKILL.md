@@ -83,7 +83,7 @@ sync_board.py --move ID=COL  # relocate a card + reconcile its day file
 sync_board.py --reconcile    # stamp board status back onto the day files (text untouched)
 sync_board.py --refresh      # re-render card text from the day files; KEEPS placement
 sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
-sync_board.py --status       # register health; --brief prints only the verdict line
+sync_board.py --status       # register health + damaged frontmatter; --brief = one line
 sync_board.py --rebuild --discard-placement   # re-place everything from day files
 sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
 sync_board.py --migrate --apply   # ...and move them, each keeping its column
@@ -198,11 +198,48 @@ than as the thing that closes it. Proposing Done there would be wrong, so sectio
 findings are surfaced for review instead.
 
 **`--status`** reports register health — last capture, lane counts, cards sitting past
-`stale_days`. `--brief` prints one verdict line, suitable for a SessionStart nudge:
+`stale_days`, and **boards whose frontmatter another writer has damaged**. `--brief`
+prints one verdict line, suitable for a SessionStart nudge:
 
 ```
 ⚠️ work-register [abhi]: last capture 4d ago · 10 card(s) stale >3d
 ```
+
+### Damaged frontmatter — noticing what sync already repairs
+
+The render is not the only thing that writes to a board file. Obsidian's own **Properties
+editor re-serialises YAML frontmatter** whenever a property is edited, and a formatter
+plugin will rewrite it unasked. Drop `kanban-plugin: board` and the Kanban plugin stops
+rendering the file as a board at all — the owner does not have a stale worklist, they have
+no worklist.
+
+**The repair already existed; the noticing did not.** `render_board` writes
+`[board.frontmatter]` from the contract on every pass, so *any* sync fixes it. But between
+syncs the board can sit unrenderable and nothing says so — and a silent repair is still a
+silent problem, because the owner finds out by opening the board.
+
+So `--status` checks every board the register renders against **every key the contract
+declares**, and reports what it finds:
+
+```
+⚠️ 1 board(s) carry frontmatter the contract does not:
+   🗂️ WORK-REGISTER.md
+      kanban-plugin: missing · contract declares 'board'
+      publish_to: no value on its own line · contract declares '[ai-context]'
+      topic: says 'Work Register Board' · contract declares 'work-register-board'
+   a plain sync rewrites them from the contract, and moves no card: sync_board.py
+```
+
+| Property | Why |
+|---|---|
+| **culprit-independent** | which plugin rewrote it is near-unanswerable, and the answer would not change the fix — so this checks the result, not the cause |
+| **vocabulary in config** | the engine names no key; it checks whatever `[board.frontmatter]` declares, so a corpus's own `topic` is checked exactly like `kanban-plugin` |
+| **read-only** | `--status` repairs nothing. Repair belongs to sync; a status verb that mutates is one nobody can trust |
+| **leads the verdict** | it is the most severe thing that can be true of a board, so it goes first on the one `--brief` line — and that line stays exactly one line |
+| **`no value on its own line`** | the signature of a scalar re-serialised into a block list: the key keeps its line, the value moves underneath |
+
+A board that does not exist yet is not damaged — the first sync writes it — so it is
+skipped rather than reported as missing every key it has never had.
 
 Offer `--probe` when the user asks what's still true, takes stock, or has been away.
 An unresolved reference (offline, unauthenticated, repo moved) is reported as **unknown**,
@@ -498,6 +535,7 @@ covered at the parsing boundary instead.
 | `test_probe` | Reference extraction, and item-bound proposals versus section-bound advice |
 | `test_rebuild` | The `--discard-placement` gate and the staleness clock |
 | `test_init` | The three things init writes and its refusal to overwrite any of them |
+| `test_frontmatter` | `--status` noticing a board another writer damaged — and repairing none of it |
 
 Two tests deliberately pin behaviour rather than assert an ideal, and say so in their
 docstrings — `--list --scope <default>` not matching a trackless card, and a consented

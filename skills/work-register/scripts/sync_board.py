@@ -27,7 +27,7 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --reconcile    # board status (column + checkbox) → day files
     sync_board.py --move ID=COLUMN   # relocate a card, then reconcile the day file
     sync_board.py --probe        # resolve cards' own references; PROPOSES, never moves
-    sync_board.py --status       # register health: last capture, stale lanes
+    sync_board.py --status       # register health: last capture, stale lanes, damaged frontmatter
     sync_board.py --refresh      # re-render card text from day files; KEEPS placement
     sync_board.py --rebuild --discard-placement   # re-place all from day files
     sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
@@ -1169,6 +1169,106 @@ def report_drift(cfg: dict, misplaced: list[dict], orphaned: list[dict]) -> None
             print(f"   {entry['id']}  on {entry['board'].name} — no source; left where it is")
 
 
+# --- Frontmatter drift: a board another writer has damaged --------------------------
+#
+# The render is not the only thing that writes to a board file. Obsidian's own Properties
+# editor re-serialises YAML frontmatter whenever a property is edited, and a formatter
+# plugin will rewrite it unasked — which is how a live board lost `kanban-plugin: board`
+# mid-session and stopped being rendered as a board at all.
+#
+# Half of this is already solved: `render_board` writes `[board.frontmatter]` from the
+# contract on every pass, so any sync REPAIRS the damage. What was missing is NOTICING.
+# Between syncs the board can sit unrenderable and nothing says so, and a silent repair is
+# still a silent problem — the owner learns their board stopped working by opening it.
+#
+# Deliberately culprit-independent. Which of a vault's plugins did the rewriting is close
+# to unanswerable (Obsidian core alone matches the observed damage) and the answer would
+# not change the fix, so this checks the RESULT rather than chasing the cause.
+#
+# Which keys matter is vocabulary — every key the contract declares is checked and the
+# engine names none of them, so `kanban-plugin` is checked exactly like a corpus's own
+# `topic`. Reporting only, like the placement drift above: repair belongs to sync, and a
+# status verb that mutates is one nobody can trust.
+
+# Deliberately not `FM_FIELD`, which serves the canon-readiness probe: that one wants
+# `\w+` (no hyphens, so it cannot see `kanban-plugin`) and a non-empty value (so it cannot
+# see a key rewritten into a block list, which is exactly the damage shape here).
+FM_KEY = re.compile(r"^([A-Za-z0-9_-]+):(.*)$")
+
+
+def board_frontmatter(path: Path) -> dict[str, str] | None:
+    """A board's on-disk frontmatter as key -> raw scalar, or None if it carries none.
+
+    Raw text, deliberately. The contract declares scalars verbatim (`publish_to =
+    "[ai-context]"`) and the render writes them verbatim, so comparing the text is the
+    honest test of whether the board still says what the contract says. A key another
+    writer expanded into a block list therefore reads as an EMPTY value — which is what
+    its own line now holds — and is reported as a contradiction rather than passed off as
+    equivalent. Only top-level keys are read; an indented line is a list item, not a key.
+    """
+    if not path.is_file():
+        return None
+    found = FRONTMATTER.match(path.read_text(encoding="utf-8"))
+    if not found:
+        return None
+    fields: dict[str, str] = {}
+    for line in found.group(1).splitlines():
+        key = FM_KEY.match(line)
+        if key:
+            fields.setdefault(key.group(1), key.group(2).strip())
+    return fields
+
+
+def frontmatter_drift(cfg: dict, paths) -> list[dict]:
+    """Boards whose on-disk frontmatter no longer matches the contract.
+
+    One entry per damaged board: `keys` holds (key, what the board says, what the contract
+    declares), with None for a key that is absent entirely. A board that does not exist yet
+    is not damaged — the first sync writes it — so it is skipped rather than reported as
+    missing every key it has never had.
+    """
+    declared = cfg["board"].get("frontmatter") or {}
+    damaged: list[dict] = []
+    for path in paths:
+        if not path.is_file():
+            # Not damaged, just not written yet — the first sync renders it.
+            continue
+        present = board_frontmatter(path)
+        fields = present or {}
+        wrong = [
+            (key, fields.get(key), str(value))
+            for key, value in declared.items()
+            if fields.get(key) != str(value)
+        ]
+        if wrong:
+            damaged.append({"board": path, "keys": wrong, "absent": present is None})
+    return damaged
+
+
+def report_frontmatter(cfg: dict, damaged: list[dict]) -> None:
+    """Print frontmatter damage in the shape placement drift is printed in. Reports only."""
+    log = cfg["log"]
+    if not damaged:
+        return
+    print(f"{log['warn']} {len(damaged)} board(s) carry frontmatter the contract does not:")
+    for entry in damaged:
+        note = " — no frontmatter block at all" if entry["absent"] else ""
+        print(f"   {log['board']} {entry['board'].name}{note}")
+        for key, found, declared in entry["keys"]:
+            # An EMPTY value is named rather than printed as ''. It is the signature of a
+            # scalar re-serialised into a block list — the key keeps its line and the value
+            # moves underneath — and saying so is the difference between a reader
+            # recognising what happened and puzzling at two quote marks.
+            if found is None:
+                says = "missing"
+            elif not found:
+                says = "no value on its own line"
+            else:
+                says = f"says {found!r}"
+            print(f"      {key}: {says} · contract declares {declared!r}")
+    print("   a plain sync rewrites them from the contract, and moves no card: sync_board.py")
+
+
 # --- Probe: resolve the references a card cites, and report what they say ----------
 #
 # The register already points at reality — cards cite `app#733`, `surge-bot#356`, canon
@@ -1822,7 +1922,8 @@ def main() -> int:
     parser.add_argument(
         "--status",
         action="store_true",
-        help="report register health: last capture, lane counts, cards stale in a lane",
+        help="report register health: last capture, lane counts, cards stale in a lane, "
+        "and boards whose frontmatter another writer has damaged. Reports only",
     )
     parser.add_argument(
         "--list",
@@ -2169,8 +2270,15 @@ def main() -> int:
         misplaced, orphaned = placement_drift(
             day_file_items(cfg, every_day_file), boards, default_scope, where, ledger
         )
+        damaged = frontmatter_drift(cfg, board_order(boards))
 
         problems = []
+        # First in the line, because it is the most severe thing that can be true of a
+        # board: without `kanban-plugin` the Kanban plugin stops rendering the file as a
+        # board at all, so the owner is not looking at a stale worklist — they have no
+        # worklist. A sync repairs it, but only once someone knows to run one.
+        if damaged:
+            problems.append(f"{len(damaged)} board(s) with damaged frontmatter")
         if capture_age is not None and capture_age >= cfg["status"]["capture_gap_days"]:
             problems.append(f"last capture {capture_age}d ago")
         if stale:
@@ -2192,6 +2300,7 @@ def main() -> int:
         print("   " + " · ".join(f"{c} {n}" for c, n in counts.items()))
         for age, item_id, column in stale[:10]:
             print(f"   {log['warn']} {item_id} — {age}d in {column}")
+        report_frontmatter(cfg, damaged)
         if misplaced or orphaned:
             report_drift(cfg, misplaced, orphaned)
             if misplaced:
