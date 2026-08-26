@@ -1,6 +1,7 @@
 [submodule "skills/obsidian-second-brain"]
 	path = skills/obsidian-second-brain
-  url = https://github.com/eugeniughelbur/obsidian-second-brain
+	url = https://github.com/abhijit-s/obsidian-second-brain
+	branch = patched
 
 [submodule "skills/excalidraw-diagram"]
 	path = skills/excalidraw-diagram
