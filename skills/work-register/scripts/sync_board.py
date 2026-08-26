@@ -32,6 +32,8 @@ Verbs, each one-directional (see the field-ownership table below):
     sync_board.py --rebuild      # re-place all from day files; DISCARDS drags
     sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
     sync_board.py --migrate --apply  # …and move them, each keeping its column
+    sync_board.py --archive      # trim Done to a recency window; day files untouched
+    sync_board.py --archive --before YYYY-MM-DD | --keep N [--include-anchored]
     sync_board.py --init PATH    # stand a register up in a vault that has never had one
     sync_board.py --dry-run --show-config --since YYYY-MM-DD --register NAME --config PATH
 
@@ -56,7 +58,7 @@ import re
 import sys
 import tomllib
 from dataclasses import dataclass, field
-from datetime import date as _date, datetime
+from datetime import date as _date, datetime, timedelta
 from pathlib import Path
 
 SCHEMA_VERSION = 1
@@ -182,6 +184,7 @@ DEFAULTS: dict = {
         "probe": "\U0001f50e",
         "proposal": "\U0001f4ec",
         "init": "\U0001f331",
+        "archived": "\U0001f4e6",
         "ok": "✅",
         "warn": "⚠️",
         "unresolved": "❔",
@@ -202,6 +205,11 @@ DEFAULTS: dict = {
         # columns whose cards are not probed (already finished / deliberately idle).
         "skip_columns": [],
     },
+    # The Done column is a recency WINDOW, not a record — the day files are the record.
+    # How wide that window is is vocabulary (it tracks how fast a register moves), so it has
+    # a code default and a corpus may say otherwise. Whether an anchored card is protected
+    # is grammar, not vocabulary, so it stays a deliberate flag rather than a settable key.
+    "archive": {"keep_days": 14},
     "status": {
         "stale_days": 3,
         "capture_gap_days": 2,
@@ -821,6 +829,127 @@ def load_ledger(path: Path) -> dict:
 
 def save_ledger(path: Path, ledger: dict) -> None:
     path.write_text(json.dumps(ledger, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+# --- Archive: Done is a recency window; the day files are the record ---------------
+#
+# A board where 16 of 38 cards are Done reads as history rather than as a worklist, and it
+# compounds twice as fast once a register renders more than one board and each accumulates
+# its own. The archive is not a new store, and that is the whole design: it is the DAY
+# FILES, which are the source — permanent, dated, append-only, and carrying the reasoning
+# `--show` prints. The board is derived and disposable, so taking a Done card off it loses
+# nothing, and the ledger already stops a removed card coming back.
+#
+# NOT the Obsidian Kanban plugin's own archive, and not a `## Archive` section of our own.
+# `column_sequence` takes "the configured flow first, then anything else present", so such a
+# section is read as just another column: re-rendered as one, its cards still counted by
+# `--list` and `--status`, and `--reconcile` stamping the column name back into day files.
+#
+# Two properties the verb is built around, each learned from a failure that already happened:
+#
+#   Anchors survive. An `^id` on a card is a link target the owner created by copying a link
+#   to it. The board is disposable; `[[WORK-REGISTER#^id]]` pointing into it is not. Six of
+#   this register's eleven anchors sit in Done, so archiving blind would break six live links
+#   — the same loss `--rebuild` inflicted. Anchored cards are held back and named by id, and
+#   --include-anchored is the deliberate opt-in.
+#
+#   Archived is not deleted. `resurrect_guard` is computed as `placed - on_board`, so without
+#   a marker every archived card would land in the set the run reports as "deleted from the
+#   board stay deleted" — a count that would then be nonsense. So an archived entry carries an
+#   `archived` key holding the date it left. ONE key: its presence is the flag and its value
+#   says when, where two keys for one fact could disagree.
+#
+#   Migration — what happens to the ledger that already exists? Entries written before this
+#   verb carry no `archived` key at all, and every card placed then was on a board. So a
+#   MISSING key reads as "not archived". The existing ledger keeps working untouched, is
+#   never backfilled, and needs no schema bump.
+
+
+def card_anchor(card: str) -> str:
+    """An Obsidian block id (`^abc123`) on a card's first line, or "" — the link target.
+
+    One notion of "this card is anchored", shared by --refresh, which must carry it across a
+    re-render, and --archive, which must not take it off the board.
+    """
+    found = re.match(r"^[^\n]*?\s(\^[A-Za-z0-9-]+)\s*$", card.split("\n")[0])
+    return found.group(1) if found else ""
+
+
+def card_since(entry: dict, item_id: str) -> str | None:
+    """When a card last became what it is, best available: ledger, then its own id.
+
+    `since` is stamped on placement and on every move; `day` is the capture date a ledger
+    written before `since` existed carries; the id's own date prefix is the last resort, and
+    it is always there because the id was minted from it. --status ages a card sitting in a
+    working lane with this and --archive ages one sitting in Done — one question, so one
+    ladder rather than two that could drift.
+    """
+    stamped = entry.get("since") or entry.get("day")
+    if stamped:
+        return stamped
+    return f"{item_id[:4]}-{item_id[4:6]}-{item_id[6:8]}" if item_id[:8].isdigit() else None
+
+
+def archived_ids(ledger: dict) -> set[str]:
+    """Ids the archive took off a board. A missing marker means not archived — see above."""
+    return {
+        item_id
+        for item_id, entry in (ledger.get("placed") or {}).items()
+        if entry.get("archived")
+    }
+
+
+def archive_selection(
+    cfg: dict,
+    ledger: dict,
+    columns: dict[str, list[str]],
+    before: str | None,
+    keep: int | None,
+    include_anchored: bool,
+) -> tuple[list[tuple], list[tuple], list[tuple]]:
+    """One board's done column split into what leaves and what is held back.
+
+    Returns (archive, anchored, unidentified), each a list of (id, card block, since).
+    Nothing is ever dropped silently: a card held back is returned so the caller can name it.
+
+      anchored      — carries an `^id` that a wiki link may point at
+      unidentified  — carries no `wr:` id, so the ledger could not record it leaving, and an
+                      untrackable removal is a deletion rather than an archive
+
+    The window is applied to EVERY done card first, so `--keep N` means "the N most recent
+    stay" rather than "the N most recent unanchored stay" — an anchored card held back is
+    then extra, and the report says so.
+    """
+    placed = ledger.get("placed") or {}
+    finder = id_pattern(cfg["ids"]["prefix"])
+
+    rows: list[tuple] = []
+    for card in columns.get(cfg["board"]["done_column"], []):
+        found = finder.search(card)
+        item_id = found.group(1) if found else ""
+        rows.append((item_id, card, card_since(placed.get(item_id, {}), item_id)))
+    # Newest first. An undated card sorts oldest: there is no evidence it is recent, and the
+    # alternative — reading unknown as new — would keep precisely the cards nothing is known
+    # about. It is still only a sort, never a removal: an undated card is archived only if the
+    # window it falls outside says so.
+    rows.sort(key=lambda row: (row[2] or "", row[0]), reverse=True)
+
+    if keep is not None:
+        stale = rows[keep:]
+    else:
+        stale = [row for row in rows if not row[2] or row[2] < before]
+
+    archive: list[tuple] = []
+    anchored: list[tuple] = []
+    unidentified: list[tuple] = []
+    for row in stale:
+        if not row[0]:
+            unidentified.append(row)
+        elif card_anchor(row[1]) and not include_anchored:
+            anchored.append(row)
+        else:
+            archive.append(row)
+    return archive, anchored, unidentified
 
 
 def board_status(cfg: dict, columns: dict[str, list[str]]) -> dict[str, str]:
@@ -1712,10 +1841,47 @@ def main() -> int:
         help="with --migrate, actually relocate the reported cards between boards, keeping "
         "each card's column. Without it --migrate changes nothing",
     )
+    parser.add_argument(
+        "--archive",
+        action="store_true",
+        help="trim the done column on every board to a recency window, removing the cards "
+        "outside it. The day files are the record and are never touched. Bare, the window is "
+        "[archive] keep_days; --before and --keep name one explicitly",
+    )
+    parser.add_argument(
+        "--before",
+        metavar="YYYY-MM-DD",
+        help="with --archive, archive done cards last moved before this date",
+    )
+    parser.add_argument(
+        "--keep",
+        type=int,
+        metavar="N",
+        help="with --archive, keep the N most recent done cards on EACH board and archive "
+        "the rest",
+    )
+    parser.add_argument(
+        "--include-anchored",
+        action="store_true",
+        help="with --archive, also archive cards carrying an Obsidian block id (^abc123). "
+        "Off by default: an [[…#^id]] link points at each one, so removing it breaks a live "
+        "link. Held-back cards are always reported by id",
+    )
     args = parser.parse_args()
 
     if args.apply and not args.migrate:
         parser.error("--apply is meaningless on its own; it qualifies --migrate")
+    for flag, value in (("--before", args.before), ("--keep", args.keep),
+                        ("--include-anchored", args.include_anchored or None)):
+        if value is not None and not args.archive:
+            parser.error(f"{flag} is meaningless on its own; it qualifies --archive")
+    if args.before and args.keep is not None:
+        parser.error(
+            "--before and --keep ask different questions — a date cut and a column size. "
+            "Pass one"
+        )
+    if args.keep is not None and args.keep < 0:
+        parser.error("--keep wants a card count, so it cannot be negative")
 
     # Before resolution, not after: on a machine with no base config there is no register to
     # resolve yet, and writing one is the whole point of the verb.
@@ -1916,9 +2082,7 @@ def main() -> int:
         for item_id, column in placement.items():
             if column not in watch:
                 continue
-            entry = ledger["placed"].get(item_id, {})
-            age = days_since(entry.get("since") or entry.get("day") or item_id[:8] and
-                             f"{item_id[:4]}-{item_id[4:6]}-{item_id[6:8]}")
+            age = days_since(card_since(ledger["placed"].get(item_id, {}), item_id))
             if age is not None and age >= cfg["status"]["stale_days"]:
                 stale.append((age, item_id, column))
         stale.sort(reverse=True)
@@ -2010,6 +2174,89 @@ def main() -> int:
               f"{len(written)} board(s) written")
         return 0
 
+    # --- archive: trim the done column to a recency window -----------------------
+    #
+    # A one-directional REMOVAL from the board, and nothing else. The day files are the
+    # archive, so they are not read for status and not written at all — which is what makes
+    # this safe to run on a register the owner is mid-drag on.
+    if args.archive:
+        done_column = cfg["board"]["done_column"]
+        before = args.before
+        if args.keep is None and before is None:
+            keep_days = cfg["archive"]["keep_days"]
+            before = (_date.today() - timedelta(days=keep_days)).isoformat()
+            window = f"done before {before} · [archive] keep_days {keep_days}"
+        elif args.keep is not None:
+            window = f"the {args.keep} most recent kept, per board"
+        else:
+            window = f"done before {before}"
+
+        # Unfiltered on purpose: a --since window would make every card outside it read as
+        # having no day-file item, which would put "(no day-file item)" on a card that has one.
+        items = day_file_items(cfg, every_day_file)
+        width = cfg["card"].get("list_text_width", 72)
+        stamp = datetime.now().astimezone().date().isoformat()
+
+        leaving: list[tuple[str, Path]] = []
+        anchored: list[tuple] = []
+        unidentified: list[tuple] = []
+        touched: set[Path] = set()
+
+        print(f"{log['archived']} archive · {done_column} · {window}")
+        for path in board_order(boards):
+            columns = per_board.get(path, {})
+            chosen, held, unnamed = archive_selection(
+                cfg, ledger, columns, before, args.keep, args.include_anchored
+            )
+            anchored += held
+            unidentified += unnamed
+            for item_id, card, since in chosen:
+                item = items.get(item_id)
+                mark = card_anchor(card)
+                onto = f" ⇠ {path.name}" if len(board_order(boards)) > 1 else ""
+                print(f"   {log['archived']}{onto} {item_id} · done {since or 'undated'}"
+                      f"{' · ' + mark if mark else ''} · "
+                      f"{elide(item.text if item else '(no day-file item)', width)}")
+                columns[done_column].remove(card)
+                leaving.append((item_id, path))
+                touched.add(path)
+
+        # Held back, never dropped. Both lists are named by id: a card that stayed for a
+        # reason the owner cannot see is indistinguishable from one the verb missed.
+        if anchored:
+            print(f"   {log['warn']} {len(anchored)} anchored card(s) left on the board — an "
+                  "[[…#^id]] link may point at each:")
+            for item_id, card, _ in anchored:
+                print(f"      {item_id} {card_anchor(card)}")
+            print("      archive them too with: --archive --include-anchored")
+        if unidentified:
+            print(f"   {log['warn']} {len(unidentified)} done card(s) carry no "
+                  f"{cfg['ids']['prefix']}: id — left on the board, because the ledger could "
+                  "not record them leaving and an untracked removal is a deletion")
+
+        if not leaving:
+            print(f"{log['ok']} nothing to archive · {window}")
+            return 0
+        if args.dry_run:
+            print(f"{log['dry_run']} dry run — would archive {len(leaving)} card(s) from "
+                  f"{len(touched)} board(s); no board, day file or ledger written")
+            return 0
+
+        seed_columns(cfg, per_board, touched)
+        written = write_boards(cfg, sorted(touched), per_board)
+        for item_id, path in leaving:
+            entry = ledger["placed"].setdefault(item_id, {})
+            entry["column"] = done_column
+            entry["scope"] = scope_of(boards, path)
+            # Presence is the flag, the value says when. A card already in `placed` is now
+            # excluded from the resurrect guard and still blocks a re-add, which is exactly
+            # the pair of properties an archive needs and a deletion does not.
+            entry["archived"] = stamp
+        save_ledger(ledger_path, ledger)
+        print(f"{log['done']} {len(leaving)} card(s) archived · {len(written)} board(s) "
+              "written · day files untouched")
+        return 0
+
     # --- probe: what do the cards' own references say now? -----------------------
     if args.probe:
         placement = boards_status(cfg, per_board)
@@ -2090,10 +2337,10 @@ def main() -> int:
                         fresh = re.sub(r"^- \[ \]", "- [x]", fresh, count=1)
                     # So does an Obsidian block id (^abc123): the owner created it by copying
                     # a link to that card, and re-rendering must not break the link.
-                    anchor = re.match(r"^[^\n]*?\s(\^[A-Za-z0-9-]+)\s*$", card.split("\n")[0])
-                    if anchor and anchor.group(1) not in fresh:
+                    anchor = card_anchor(card)
+                    if anchor and anchor not in fresh:
                         head, sep, tail = fresh.partition("\n")
-                        fresh = f"{head} {anchor.group(1)}{sep}{tail}"
+                        fresh = f"{head} {anchor}{sep}{tail}"
                     if fresh != card:
                         cards[index] = fresh
                         changed += 1
@@ -2138,7 +2385,13 @@ def main() -> int:
     added: list[Item] = []
     stamped: list[str] = []
     seen: dict[str, Item] = {}
-    resurrect_guard = sorted(set(ledger["placed"]) - on_board) if not args.rebuild else []
+    # Archived, not deleted. Both are ids in `placed` that no board holds, and both are
+    # correctly refused a re-add above — but only one of them was the owner throwing the card
+    # away. Without this the "deleted stay deleted" count would swallow every archived card.
+    archived = set() if args.rebuild else archived_ids(ledger)
+    resurrect_guard = (
+        sorted(set(ledger["placed"]) - on_board - archived) if not args.rebuild else []
+    )
     split = len(board_order(boards)) > 1
 
     for path in day_files:
@@ -2171,6 +2424,9 @@ def main() -> int:
         print(f"   {prefix} [{lane}]{onto} {item.item_id} {icons} {item.text[:64]}")
     if resurrect_guard:
         print(f"   {log['deleted']} {len(resurrect_guard)} card(s) deleted from the board stay deleted")
+    if archived:
+        print(f"   {log['archived']} {len(archived)} card(s) archived off the board stay off "
+              "— the day files hold them")
 
     # Detected, never applied: a scope change moves cards between files, which is a status
     # write. Sync's job is to add what is new, so it says what it found and stops.

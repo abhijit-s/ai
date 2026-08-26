@@ -87,6 +87,7 @@ sync_board.py --status       # register health; --brief prints only the verdict 
 sync_board.py --rebuild      # re-place everything from day files; DISCARDS drags
 sync_board.py --migrate      # cards whose scope now names another board; REPORTS only
 sync_board.py --migrate --apply   # ...and move them, each keeping its column
+sync_board.py --archive      # trim Done to a recency window; day files untouched
 sync_board.py --init PATH    # stand a register up in a vault that has never had one
 sync_board.py --dry-run      # show what would happen, write nothing
 sync_board.py --show-config  # resolved config layers
@@ -318,6 +319,80 @@ sync_board.py --list --scope personal --open                 # the personal slic
 sync_board.py --list --scope work --track prod-setup --open  # filters compose
 ```
 
+## Trimming Done — `--archive`
+
+**Done is a recency window; the day files are the record.** A board where nearly half the
+cards are Done reads as history rather than as a worklist, and it compounds twice as fast
+once a register renders more than one board and each accumulates its own.
+
+The archive is not a new store, and that is the whole design. It is the **day files** —
+source, permanent, dated, append-only, and holding the reasoning `--show` prints. The board
+is derived and disposable, so taking a Done card off it loses nothing.
+
+```bash
+sync_board.py --archive                        # the configured window: [archive] keep_days
+sync_board.py --archive --before 2026-08-12    # an explicit date cut
+sync_board.py --archive --keep 10              # keep the 10 most recent, per board
+sync_board.py --archive --dry-run              # name what would go; write nothing
+sync_board.py --archive --include-anchored     # also take anchored cards (see below)
+```
+
+It removes cards from the **done column only**, on **every board** the register renders,
+and **never touches a day file** — not to reconcile, not to stamp an id.
+
+`--before` and `--keep` ask different questions, so exactly one may be passed:
+
+| Form | Question | Use when |
+|---|---|---|
+| `--before DATE` | *what finished before this?* | cutting at a sprint or month boundary; deterministic, so a dry run and the real run a day apart agree |
+| `--keep N` | *how big should Done be?* | the complaint is the column's size, independent of how fast the work moves |
+| bare | *the usual window* | the common case — `[archive] keep_days` in the corpus contract |
+
+Recency is read from the ledger — `since` (stamped on placement and on every `--move`),
+then `day`, then the card id's own date prefix. That is the **same ladder `--status` ages a
+stale card with**, deliberately: one question, so one answer. Note `since` is when the card
+reached its column, not when the work happened — so a done item synced in from an old day
+file is *recent on the board*, and will not vanish the moment it first appears.
+
+### Two things it deliberately refuses
+
+**Anchored cards are skipped.** An `^abc123` block id on a card is a link target the owner
+created; `[[WORK-REGISTER#^id]]` pointing into the board is not disposable even though the
+board is. Anchored cards outside the window are **held back and named by id and anchor**, so
+nothing is ever dropped silently. `--include-anchored` is the deliberate opt-in, and it
+prints each anchor it is about to orphan.
+
+**Id-less cards are skipped.** A hand-written done card carrying no `<!-- wr:… -->` id
+cannot be recorded in the ledger, so removing it would be a deletion rather than an archive.
+It stays, and is reported.
+
+### Archived is not deleted
+
+The ledger records every id ever placed, which is what stops a card the owner deleted from
+being resurrected. An archived entry gains an **`archived` key holding the date it left** —
+one key, because its presence is the flag and its value says when.
+
+That marker is load-bearing in two directions:
+
+- a later `sync` still **refuses to re-add** it, exactly as for a deletion;
+- but the run reports the two separately — `🗑️ N deleted from the board stay deleted` and
+  `📦 N archived off the board stay off` — instead of the archive inflating the deletion
+  count into nonsense.
+
+**Migration:** an entry written before `--archive` existed carries no such key, and every
+card placed then was on a board. So a **missing key reads as "not archived"**. The existing
+ledger keeps working untouched, is never backfilled, and needs no schema bump.
+
+### Not the Kanban plugin's own archive
+
+The Obsidian Kanban plugin has `archiveCompletedCards` and an `archive-with-date` setting.
+**Do not use it.** `column_sequence` takes "the configured flow first, then anything else
+present", so a plugin-written `## Archive` section is read as **just another column** —
+re-rendered as one, its cards still counted by `--list` and `--status`, and `--reconcile`
+stamping the column name back into day files. The board is a file two writers share, and
+each assuming it owns the file is the same bug class as a plugin deleting our frontmatter
+key, or our render dropping the plugin's settings keys.
+
 ## Configuration (memory-kit philosophy)
 
 Layers, later winning: **code defaults** ← `~/.config/work-register/config.toml`
@@ -328,6 +403,17 @@ Every key has a code default, so the tool runs with zero settings. When the user
 new lane, a new tag/icon, or a different card shape, **edit the register root's
 `.work-register.toml` — never the engine.** Grammar (item syntax, id format) is logic and
 stays in code.
+
+How wide the Done window is tracks how fast a register moves, so it is vocabulary too:
+
+```toml
+[archive]
+keep_days = 14      # bare `--archive` keeps Done cards this recent; --before/--keep override
+```
+
+Deliberately **not** a key: whether an anchored card is protected. Not breaking a live
+`[[…#^id]]` link is grammar, not house style, so it is a flag that has to be typed rather
+than a setting that could be turned off once and forgotten.
 
 ### Standing a register up in a new vault — `--init`
 
@@ -381,6 +467,10 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 | Hand-edit a day file to update status | Move the card on the board, then `--reconcile` |
 | Re-list yesterday's unfinished item in today's file | It is already on the board |
 | `--rebuild` to "tidy up" | It discards drags and block anchors — `--refresh` if you only fixed text |
+| `--rebuild` to clear old Done cards | `--archive` — it removes only what the window names, and keeps anchors |
+| Let the Kanban plugin archive completed cards | Its `## Archive` section reads as another column — `--archive` |
+| Delete a Done card from the board to tidy it | `--archive` — a deletion and an archive read differently in the ledger |
+| Archive anchored cards to get a clean sweep | Each is a live `[[…#^id]]` link; `--include-anchored` only once you have read the list |
 | Leaving a corrected day-file item stale on the board | `--refresh` |
 | Read the whole board to find a few cards | `--list --track X --open` |
 | Guess why a card exists from its face | `--show ID` — the day file holds the reasoning |
@@ -398,6 +488,7 @@ per-machine config, then drop a `.work-register.toml` at that root for its conve
 
 ## Remember
 
-- **Day files are history; the board is state.** Never blur the two.
+- **Day files are history; the board is state.** Never blur the two — and because they are
+  history, they are also the archive: Done on the board is only a recency window.
 - **The corpus owns its vocabulary.** New work → new tag rule, not new code.
 - **Intent, not status.** The register points; it does not duplicate.
