@@ -2,6 +2,10 @@
 
 ## T1 — Promote to a full plugin (own skills, tools, agents)
 
+> **Closed on the register 2026-08-27** as card `20260827-01` (package work-register as
+> a plugin). The roadmap card `20260820-01` was split rather than closed with it — what
+> stays open there is T2 and T3, the half that keeps the board moving on its own.
+
 **Want:** `work-register` becomes a proper Claude Code plugin rather than a single skill
 plus a script, so it can **plug into any vault** and keep the board moving on its own.
 
