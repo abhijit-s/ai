@@ -183,3 +183,112 @@ def test_resolve_profile_session_default_includes_semantic_search_when_healthy(
     sample_manifest["tools"]["mcp__turbo-rag__semantic_search"]["health"]["state"] = "healthy"
     allowed = trc.resolve_profile("session-default", profiles, sample_manifest)
     assert "mcp__turbo-rag__semantic_search" in allowed
+
+
+# --- command-path-aware code-repo detection ---------------------------------
+#
+# cwd alone could not see a code-repo call: sessions launch from the umbrella
+# vault by convention and reach into the repos by absolute path or `cd`.
+
+CODE_ROOTS = ["/Users/x/workspace/surge/app", "/Users/x/workspace/surge/surge-bot"]
+
+
+def test_command_target_paths_finds_cd_and_argument_paths():
+    paths = trc.command_target_paths(
+        "cd /Users/x/workspace/surge/app && rg -n 'Handler' services/bff /tmp/other"
+    )
+    assert "/Users/x/workspace/surge/app" in paths
+    assert "/tmp/other" in paths
+
+
+def test_command_target_paths_ignores_relative_and_flag_tokens():
+    paths = trc.command_target_paths("rg -n --glob '!*.md' Handler services/bff")
+    assert paths == []
+
+
+def test_command_target_paths_of_empty_command_is_empty():
+    assert trc.command_target_paths("") == []
+
+
+def test_cd_into_code_repo_is_detected_from_an_unrelated_cwd():
+    assert trc.command_touches_code_repo(
+        "cd /Users/x/workspace/surge/app && rg foo", "/Users/x/vaults/workspace", CODE_ROOTS
+    )
+
+
+def test_absolute_path_argument_into_code_repo_is_detected():
+    assert trc.command_touches_code_repo(
+        "rg -n Handler /Users/x/workspace/surge/app/services/bff",
+        "/Users/x/vaults/workspace",
+        CODE_ROOTS,
+    )
+
+
+def test_tilde_path_argument_into_code_repo_is_detected(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert trc.command_touches_code_repo(
+        "rg -n Handler ~/clone/sub", "/elsewhere", ["~/clone"]
+    )
+
+
+def test_cwd_under_code_repo_still_wins_with_no_path_argument():
+    assert trc.command_touches_code_repo(
+        "rg foo", "/Users/x/workspace/surge/app/services", CODE_ROOTS
+    )
+
+
+def test_command_outside_every_code_repo_is_not_detected():
+    assert not trc.command_touches_code_repo(
+        "rg foo /Users/x/vaults/workspace/Memory", "/Users/x/vaults/workspace", CODE_ROOTS
+    )
+
+
+def test_code_repo_prefix_is_matched_on_path_boundary():
+    # `.../surge/app-scratch` must not count as `.../surge/app`.
+    assert not trc.command_touches_code_repo(
+        "rg foo /Users/x/workspace/surge/app-scratch", "/Users/x/vaults/workspace", CODE_ROOTS
+    )
+
+
+# --- heredoc bodies are data, not commands ----------------------------------
+
+
+def test_strip_heredocs_removes_body_and_terminator():
+    stripped = trc.strip_heredocs("cat > f.py <<'PY'\nrg -n Handler /repo\nPY\necho done")
+    assert "rg" not in stripped
+    assert "/repo" not in stripped
+    assert "echo done" in stripped
+
+
+def test_strip_heredocs_keeps_the_rest_of_the_introducer_line():
+    stripped = trc.strip_heredocs("cat <<EOF > /tmp/out\nbody\nEOF")
+    assert "/tmp/out" in stripped
+    assert "body" not in stripped
+
+
+def test_strip_heredocs_handles_dash_and_quoted_delimiters():
+    for intro in ("<<EOF", "<<-EOF", "<<'EOF'", '<<"EOF"'):
+        stripped = trc.strip_heredocs(f"cat {intro}\nrg secret /repo\nEOF\nls")
+        assert "rg" not in stripped, intro
+        assert "ls" in stripped, intro
+
+
+def test_strip_heredocs_is_idempotent():
+    once = trc.strip_heredocs("cat <<'PY'\nrg x /repo\nPY\nuv run pytest")
+    assert trc.strip_heredocs(once) == once
+
+
+def test_strip_heredocs_unterminated_body_runs_to_the_end():
+    stripped = trc.strip_heredocs("cat <<'PY'\nrg x /repo")
+    assert "rg" not in stripped
+
+
+def test_strip_heredocs_leaves_a_plain_command_untouched():
+    assert trc.strip_heredocs("rg -n Handler /repo") == "rg -n Handler /repo"
+
+
+def test_heredoc_path_does_not_count_as_a_code_repo_target():
+    command = "cat > note.md <<'MD'\nsee /Users/x/workspace/surge/app/main.go\nMD"
+    assert not trc.command_touches_code_repo(
+        trc.strip_heredocs(command), "/elsewhere", CODE_ROOTS
+    )

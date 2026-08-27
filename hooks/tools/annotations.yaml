@@ -17,8 +17,12 @@ mcp__fff__grep:
   description: Search file contents (frecency-ranked, .gitignore-aware)
   category: [search-content]
   capability_tags: [content-search, frecency-ranked, gitignore-aware, indexed]
+  # ast-grep is deliberately absent: it is a different KIND of search (syntax
+  # structure, not text), not a lower tier of this one. Listing it here demoted
+  # every structural query to a nudge and drove ast-grep use to ~0. Its own
+  # ast-search category is where it ranks first.
   prefer_over:
-    search-content: [ast-grep, rg, grep]
+    search-content: [rg, grep]
 
 mcp__fff__find_files:
   description: Discover files by name (frecency-ranked, .gitignore-aware)
@@ -32,8 +36,9 @@ mcp__fff__multi_grep:
   description: OR-search across multiple literal patterns
   category: [search-content]
   capability_tags: [content-search, frecency-ranked, gitignore-aware, indexed, multi-pattern]
+  # See mcp__fff__grep above for why ast-grep is not in this chain.
   prefer_over:
-    search-content: [ast-grep, rg, grep]
+    search-content: [rg, grep]
 
 mcp__fff__list_directories:
   description: List active directories (frecency-ranked)

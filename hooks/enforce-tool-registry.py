@@ -33,8 +33,9 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from hooks.lib.tool_registry_client import (
-    is_under_code_repo_root,
+    command_touches_code_repo,
     load_code_repo_roots,
+    strip_heredocs,
     load_manifest,
     load_profiles,
     load_turbo_rag_roots,
@@ -180,7 +181,10 @@ def main():
 
     tool_name = input_data.get("tool_name") or ""
     tool_input = input_data.get("tool_input") or {}
-    command = tool_input.get("command") or ""
+    # Heredoc bodies are text the shell writes, not commands it runs. Reading
+    # them would classify `cat <<'EOF' ... rg foo /some/repo ... EOF` as an rg
+    # call against that repo — a verb and a path that never execute.
+    command = strip_heredocs(tool_input.get("command") or "")
 
     # Decide which manifest tool name to look up.
     manifest_name: str | None = None
@@ -197,17 +201,29 @@ def main():
                 sys.exit(0)
             emit(f"TOOL GUIDELINE (last-resort): {GREP_FIND_DENY[verb]}", decision="deny")
         # Known code repos (per each project canon's own
-        # .knowledge/local/repos.local.yaml — see load_code_repo_roots):
-        # ast-grep is the more dependable structural-search tool here
-        # specifically because fff MCP's default root is the personal vault,
-        # not these repos — it needs an explicit base_path to cover them, so
-        # it can't be assumed to "just work" the way the generic category
-        # ordering implies.
-        if verb == "rg" and is_under_code_repo_root(input_data.get("cwd") or "", load_code_repo_roots()):
+        # .knowledge/local/repos.local.yaml plus hooks/tools/code-repo-roots.json
+        # — see load_code_repo_roots): ast-grep is the more dependable
+        # structural-search tool here specifically because fff MCP's default
+        # root is the personal vault, not these repos — it needs an explicit
+        # base_path to cover them, so it can't be assumed to "just work" the
+        # way the generic category ordering implies.
+        #
+        # The test reads the command's own path arguments as well as cwd. cwd
+        # alone made this nudge nearly unreachable: sessions launch from the
+        # umbrella vault by convention and reach into the repos by absolute
+        # path or `cd`, so cwd is virtually never under a code-repo root.
+        # A command already invoking ast-grep is left alone — nudging it toward
+        # the tool it is using would be noise.
+        if (
+            verb == "rg"
+            and "ast-grep" not in command
+            and command_touches_code_repo(command, input_data.get("cwd") or "", load_code_repo_roots())
+        ):
             emit(
-                "TOOL GUIDELINE NUDGE (code-repo): You're in a known code repo "
-                "(per its project canon's repos.local.yaml). Prefer ast-grep over rg "
-                "here for anything structural (call sites, definitions, syntax-shaped "
+                "TOOL GUIDELINE NUDGE (code-repo): this command targets a known code "
+                "repo (per a project canon's repos.local.yaml or code-repo-roots.json). "
+                "Prefer ast-grep over "
+                "rg here for anything structural (call sites, definitions, syntax-shaped "
                 "matches) — fff MCP's default root doesn't cover this path without an "
                 "explicit base_path, so it can't be assumed to just work. rg is still "
                 "fine for a literal/plain-text match."

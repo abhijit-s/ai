@@ -155,6 +155,63 @@ def is_under_code_repo_root(cwd: str, roots: Iterable[str]) -> bool:
     return any(cwd == (r := _normalize_path(root)) or cwd.startswith(r + "/") for root in roots)
 
 
+# A heredoc introducer: `<<EOF`, `<<-EOF`, `<<'PY'`, `<<"SQL"`.
+_HEREDOC_START = re.compile(r"""<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1""")
+
+
+def strip_heredocs(command: str) -> str:
+    """Drop heredoc bodies from a shell command — they are data, not commands.
+
+    Without this a script written via `cat <<'EOF' ... EOF` is read as if its
+    body were the command line: an `rg` in the text counts as a search-class
+    call and a path in the text counts as a search target. The introducer token
+    is removed along with the body, which also makes this idempotent.
+    """
+    lines = command.split("\n")
+    kept: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
+        match = _HEREDOC_START.search(line)
+        if not match:
+            kept.append(line)
+            continue
+        kept.append(line[: match.start()] + line[match.end() :])
+        delim = match.group(2)
+        while i < len(lines) and lines[i].strip() != delim:
+            i += 1
+        i += 1  # the terminator line goes too
+    return "\n".join(kept)
+
+
+# Absolute (or ~-anchored) path tokens in a shell command. A quote, pipe,
+# separator or whitespace ends a token, so `cd /a/b && rg foo /a/c` yields
+# both paths. Deliberately shallow: this reads paths, it does not parse shell.
+_PATH_TOKEN = re.compile(r"""(?:^|[\s'"=])(~?/[^\s'"`;|&()]*)""")
+
+
+def command_target_paths(command: str) -> list[str]:
+    """Return the absolute/~-anchored path tokens a shell command names."""
+    if not command:
+        return []
+    return [m.group(1) for m in _PATH_TOKEN.finditer(command)]
+
+
+def command_touches_code_repo(command: str, cwd: str, roots: Iterable[str]) -> bool:
+    """True if cwd — or any path the command names — is under a code-repo root.
+
+    cwd alone is not enough to see a code-repo call. The standing convention is
+    to launch every session from the umbrella vault and reach into the repos by
+    absolute path or `cd`, so a cwd-only test almost never fires for the very
+    repos it exists to cover.
+    """
+    roots = list(roots)
+    if is_under_code_repo_root(cwd, roots):
+        return True
+    return any(is_under_code_repo_root(p, roots) for p in command_target_paths(command))
+
+
 # turbo-rag's own registration file — the source of truth for which paths are
 # semantically indexed, read directly so a cold engine never costs a hook its
 # time budget. Profile follows the engine's own TURBO_RAG_PROFILE convention.

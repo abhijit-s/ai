@@ -84,10 +84,17 @@ test("U4: search-content chain matches AGENTS.md canonical order", async () => {
     "utf-8",
   );
   const ann = parseSimpleYaml(annText);
-  // The head of the chain prefers over the rest in order.
-  assert.deepEqual(ann["mcp__fff__grep"].prefer_over["search-content"], [
-    "ast-grep",
-    "rg",
-    "grep",
-  ]);
+  // The head of the chain prefers over the rest in order. ast-grep is
+  // deliberately absent: it is a different KIND of search (syntax structure,
+  // not text), so it belongs to no tier of this chain. It ranks first in its
+  // own ast-search category instead.
+  assert.deepEqual(ann["mcp__fff__grep"].prefer_over["search-content"], ["rg", "grep"]);
+  assert.deepEqual(ann["mcp__fff__multi_grep"].prefer_over["search-content"], ["rg", "grep"]);
+  for (const head of ["mcp__fff__grep", "mcp__fff__multi_grep"]) {
+    assert.ok(
+      !ann[head].prefer_over["search-content"].includes("ast-grep"),
+      `${head} must not demote ast-grep — a structural query is not a worse text search`,
+    );
+  }
+  assert.deepEqual(ann["ast-grep"].prefer_over["ast-search"], []);
 });

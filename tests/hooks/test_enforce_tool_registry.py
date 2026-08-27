@@ -17,7 +17,7 @@ SEED_MANIFEST = {
         "mcp__fff__grep": {
             "name": "mcp__fff__grep",
             "category": ["search-content"],
-            "prefer_over": {"search-content": ["ast-grep", "rg", "grep"]},
+            "prefer_over": {"search-content": ["rg", "grep"]},
             "health": {"state": "healthy"},
         },
         "mcp__fff__find_files": {
@@ -279,3 +279,134 @@ def test_no_stdin_exits_zero():
         ["python3", HOOK], input=b"not json", capture_output=True, timeout=10
     )
     assert out.returncode == 0
+
+
+# --- ast-grep is a different KIND of search, not a lower tier ---------------
+
+
+def test_ast_grep_call_emits_no_nudge(fake_home):
+    # It was ranked third in search-content behind both fff tools, so every
+    # structural query drew a demotion nudge. Its own ast-search category is
+    # where it ranks first, and nothing outranks it there.
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "ast-grep -p 'foo($$$)' -l go"}},
+        fake_home,
+    )
+    assert out.stdout.decode().strip() == ""
+
+
+# --- the code-repo nudge reads the command's paths, not just cwd ------------
+
+
+@pytest.fixture
+def vault_with_code_repo(tmp_path):
+    """A project canon whose repos.local.yaml registers one code repo."""
+    repo = tmp_path / "code" / "myrepo"
+    repo.mkdir(parents=True)
+    overlay = tmp_path / "vault" / "proj" / ".knowledge" / "local"
+    overlay.mkdir(parents=True)
+    (overlay / "repos.local.yaml").write_text(f"repos:\n  myrepo: {repo}\n")
+    return {"vault_root": str(tmp_path / "vault"), "repo": str(repo)}
+
+
+def code_repo_nudge(out):
+    payload = parse(out)
+    if payload is None:
+        return None
+    context = payload["hookSpecificOutput"]["additionalContext"]
+    return context if "code-repo" in context else None
+
+
+def test_cd_into_a_code_repo_nudges_from_an_unrelated_cwd(fake_home, vault_with_code_repo):
+    # The regression this closes: keyed on cwd alone the nudge fired 26 times
+    # in the whole history, because sessions launch from the umbrella vault.
+    out = run_hook(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cd {vault_with_code_repo['repo']} && rg -n Handler"},
+            "cwd": "/somewhere/else",
+        },
+        fake_home,
+        env_extra={"CLAUDE_VAULT_ROOT": vault_with_code_repo["vault_root"]},
+    )
+    assert code_repo_nudge(out) is not None
+
+
+def test_path_argument_into_a_code_repo_nudges(fake_home, vault_with_code_repo):
+    out = run_hook(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"rg -n Handler {vault_with_code_repo['repo']}/svc"},
+            "cwd": "/somewhere/else",
+        },
+        fake_home,
+        env_extra={"CLAUDE_VAULT_ROOT": vault_with_code_repo["vault_root"]},
+    )
+    assert code_repo_nudge(out) is not None
+
+
+def test_command_already_using_ast_grep_is_not_nudged(fake_home, vault_with_code_repo):
+    # Telling a command to prefer the tool it is already running is noise.
+    out = run_hook(
+        {
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": f"ast-grep -p 'f($$$)' {vault_with_code_repo['repo']} | rg -i x"
+            },
+            "cwd": "/somewhere/else",
+        },
+        fake_home,
+        env_extra={"CLAUDE_VAULT_ROOT": vault_with_code_repo["vault_root"]},
+    )
+    assert code_repo_nudge(out) is None
+
+
+def test_command_outside_every_code_repo_gets_no_code_repo_nudge(fake_home, vault_with_code_repo):
+    out = run_hook(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "rg -n Handler /var/tmp/notarepo"},
+            "cwd": "/somewhere/else",
+        },
+        fake_home,
+        env_extra={"CLAUDE_VAULT_ROOT": vault_with_code_repo["vault_root"]},
+    )
+    assert code_repo_nudge(out) is None
+
+
+def test_heredoc_only_rg_draws_no_nudge(fake_home, vault_with_code_repo):
+    # The false positive this closes: writing a test file whose TEXT mentions a
+    # code-repo path drew the code-repo nudge.
+    out = run_hook(
+        {
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": (
+                    "cat > t.py <<'PY'\n"
+                    f"rg -n Handler {vault_with_code_repo['repo']}\n"
+                    "PY"
+                )
+            },
+            "cwd": "/somewhere/else",
+        },
+        fake_home,
+        env_extra={"CLAUDE_VAULT_ROOT": vault_with_code_repo["vault_root"]},
+    )
+    assert out.stdout.decode().strip() == ""
+
+
+def test_heredoc_body_cannot_smuggle_a_file_search_grep_past_the_deny(fake_home):
+    # Symmetry check: the deny must not fire on grep that is only text either.
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "cat > f.sh <<'SH'\ngrep -r x .\nSH"}},
+        fake_home,
+    )
+    assert out.stdout.decode().strip() == ""
+
+
+def test_real_grep_after_a_heredoc_is_still_denied(fake_home):
+    out = run_hook(
+        {"tool_name": "Bash", "tool_input": {"command": "cat > f.sh <<'SH'\necho hi\nSH\ngrep -r x ."}},
+        fake_home,
+    )
+    assert parse(out)["hookSpecificOutput"]["permissionDecision"] == "deny"

@@ -1,4 +1,6 @@
 {
-  "_comment": "Manual supplement to load_code_repo_roots()'s knowledge-base discovery (each project canon's .knowledge/local/repos.local.yaml). Only add a path here if it's a code repo NOT tracked by any project canon yet — everything already in a repos.local.yaml is picked up automatically and doesn't belong here too.",
-  "roots": []
+  "_comment": "Manual supplement to load_code_repo_roots()'s knowledge-base discovery (each project canon's .knowledge/local/repos.local.yaml). Only add a path here if it's a code repo NOT tracked by any project canon yet \u2014 everything already in a repos.local.yaml is picked up automatically and doesn't belong here too.",
+  "roots": [
+    "/Users/a.salvi/workspace/surge/surge-bot"
+  ]
 }

@@ -87,3 +87,48 @@ def test_subshell_find_is_logged(fake_home):
 def test_non_search_command_is_not_logged(fake_home):
     entry = run_audit("echo hello", fake_home)
     assert entry is None
+
+
+def test_ast_grep_is_logged(fake_home):
+    # Without this branch ast-grep calls were invisible to the audit log
+    # entirely, so the fff-vs-fallback report could not show the gap.
+    entry = run_audit("ast-grep --lang go -p 'func $F($$$) { $$$ }'", fake_home)
+    assert entry is not None
+    assert entry["kind"] == "ast-grep"
+    assert entry["tier"] == "hi"
+
+
+def test_ast_grep_after_cd_is_logged(fake_home):
+    entry = run_audit("cd /tmp/repo && ast-grep -p 'switch { $$$ }' -l go", fake_home)
+    assert entry is not None
+    assert entry["kind"] == "ast-grep"
+
+
+def test_ast_grep_is_not_misread_as_bare_grep(fake_home):
+    # `-` is outside the boundary class, so the lo-tier grep branch — which
+    # runs first — must not claim an ast-grep command.
+    entry = run_audit("ast-grep -p 'foo($$$)'", fake_home)
+    assert entry["kind"] != "grep"
+    assert entry["tier"] != "lo"
+
+
+def test_mixed_pipeline_is_attributed_to_the_higher_precedence_verb(fake_home):
+    # Documented precedence: the first verb in branch order wins, so a mixed
+    # command records rg. The record proves the call was search-class, not
+    # which tool did the reading.
+    entry = run_audit("ast-grep -p 'foo($$$)' -l go | rg -i handler", fake_home)
+    assert entry["kind"] == "rg"
+
+
+def test_heredoc_only_rg_is_not_logged(fake_home):
+    # A script being WRITTEN via a heredoc is text, not a search call. Logging
+    # it would overstate the fallback side of the headline ratio.
+    entry = run_audit("cat > f.py <<'PY'\nrg -n Handler /repo\nPY\necho done", fake_home)
+    assert entry is None
+
+
+def test_real_rg_after_a_heredoc_is_still_logged(fake_home):
+    # Stripping must end at the terminator, not swallow the rest of the command.
+    entry = run_audit("cat > f.py <<'PY'\nprint(1)\nPY\nrg -n Handler .", fake_home)
+    assert entry is not None
+    assert entry["kind"] == "rg"
