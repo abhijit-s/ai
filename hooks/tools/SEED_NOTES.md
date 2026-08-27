@@ -15,11 +15,16 @@ land in the overlay file, not the prose.
 > 4. fd — file discovery
 > 5. grep / find — last resort
 
-Translated to per-category `prefer_over` chains:
+Translated to per-category `prefer_over` chains. One deliberate divergence
+from the prose ladder: `ast-grep` is NOT a rung of `search-content`. It is a
+different KIND of search — syntax structure, not text — so ranking it inside
+the text chain demoted every structural query to a nudge. It heads its own
+`ast-search` category instead, and the code-repo nudge is what routes work to
+it.
 
 | Category         | Chain (head → tail)                                        |
 | ---------------- | ---------------------------------------------------------- |
-| search-content   | mcp__fff__grep → ast-grep → rg → grep                      |
+| search-content   | mcp__fff__grep → rg → grep                                 |
 | find-files       | mcp__fff__find_files → fd → find                           |
 | list-dir         | mcp__fff__list_directories → eza → ls                      |
 | git-state        | mcp__fff__get_git_status → git-status                      |

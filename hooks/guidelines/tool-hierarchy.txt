@@ -1,6 +1,7 @@
 First decide the KIND of search:
 
 - Lexical (you know the identifier, symbol, string, or filename pattern) → follow the numbered ladder below. Common case.
+- Structural (you want a SYNTAX SHAPE, not a string — a function/method definition, every call site of a symbol, a `switch`/`import` block, a struct literal) → ast-grep, DIRECTLY. It is a separate branch, not a rung of the ladder; see below.
 - Conceptual / semantic (finding notes or prose ABOUT a topic, where the wording may differ from your query) → reach for turbo-rag FIRST:
     - `mcp__turbo-rag__hybrid_search` — DEFAULT; blends vector + lexical signal. Use when unsure.
     - `mcp__turbo-rag__semantic_search` — pure vector similarity; when the query shares no keywords with the target text.
@@ -31,9 +32,12 @@ Lexical ladder — follow this tool order and stop at the first tool that fits:
 
    WORKTREES (judgement-gated, usually skip) — git worktrees from parallel work (sibling paths like `…/app-wt-*`, or temp/scratchpad checkouts) are NOT registered roots, so their branch-only code is invisible to both fff and turbo-rag. This almost never matters: the shared substrate is still searchable via the parent repo root, and the branch delta is small and known to you. Do NOT register worktrees (churn + duplicate frecency hits). ONLY when you specifically need to search code that exists solely on an unmerged branch, get that delta from git instead of the index: `git -C <worktree> diff --name-only <base>`, then `rg`/read those files directly.
 
-2. ast-grep — Syntax-aware structural code search when fff MCP is insufficient.
-3. rg (ripgrep) — Full-text search when fff MCP / ast-grep don't fit. Use full language names: `--type ruby` (not `--type rb`), `--type typescript`, etc.
-4. fd — File discovery by name/pattern. NEVER use `find` instead of `fd`.
-5. grep / find — LAST RESORT ONLY when the above tools have each genuinely failed or are unavailable.
+2. rg (ripgrep) — Full-text search when fff MCP doesn't fit. Use full language names: `--type ruby` (not `--type rb`), `--type typescript`, etc.
+3. fd — File discovery by name/pattern. NEVER use `find` instead of `fd`.
+4. grep / find — LAST RESORT ONLY when the above tools have each genuinely failed or are unavailable.
 
 Never skip to a lower tier when a higher one fits the task. Loading a higher-tier tool and then ignoring it counts as skipping.
+
+Structural branch — ast-grep is NOT a rung of that ladder:
+
+ast-grep answers a different question, so there is no ladder to walk down first — when the interesting part of the pattern is the structure rather than the words, reach for it directly. A text search can only approximate `func ($R $T) FindUserIDByPlatformSub($$$)` or `switch $X { $$$ }`; ast-grep matches the tree. The tool registry encodes exactly this: ast-grep is in no `prefer_over` chain for `search-content` (a structural query draws no demotion nudge) and heads its own `ast-search` category. Inside a known code repo an `rg` call earns a nudge TOWARD ast-grep for structural work, because fff MCP's default root does not cover those repos without an explicit `base_path`. `rg` stays entirely correct for a literal or plain-text match.

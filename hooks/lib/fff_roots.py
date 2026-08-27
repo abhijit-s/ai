@@ -137,7 +137,7 @@ def root_hint(cwd: str) -> str | None:
             f"(`{real_cwd}`). An unqualified fff search would hit the default "
             f"root (`{default_name}`, the personal vault), not your files — "
             "either pass an explicit `base_path`, or drop to the lexical "
-            "ladder (ast-grep → rg → fd)."
+            "ladder (rg → fd) — or ast-grep, if the query is structural."
         )
 
     if match["name"] == default_name:

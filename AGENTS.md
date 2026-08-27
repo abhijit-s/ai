@@ -5,6 +5,7 @@ This file provides guidance to AI coding agents when working with code across al
 Before choosing a tool, decide what *kind* of search this is:
 
 - **Lexical** — you know the identifier, symbol, literal string, or filename pattern. Follow the ladder below. This is the common case.
+- **Structural** — you want a *syntax shape* rather than a string: a function or method definition, every call site of a symbol, a `switch`/`import` block, a struct literal, a migration's `CREATE INDEX`. That is **ast-grep**, and it is a separate branch — not a rung of the lexical ladder. See below.
 - **Conceptual / semantic** — you're looking for *notes or prose about a topic* where the wording may differ from your query ("notes about auth step-up", "where did I reason about outbox ordering", "prior art on X"). Reach for **turbo-rag** first — lexical grep will miss it whenever the file phrases the idea in different words than your query.
 
 ### Conceptual searches → turbo-rag (Retrieval-Augmented Generation index)
@@ -20,13 +21,20 @@ Before choosing a tool, decide what *kind* of search this is:
 
 1. **fff MCP** (`mcp__fff__grep`, `mcp__fff__find_files`) — first choice for **multi-file / corpus-wide searches**; git repos additionally get frecency boosting for dirty files and structured JSON output
 2. **`rg`** (ripgrep) — for **direct single-file searches** (faster, no permission overhead). Use full language names (`--type ruby`, not `--type rb`)
-3. **ast-grep** — syntax-aware structural search when pattern matching needs semantic awareness
-4. **`fd`** — file discovery by name/pattern
-5. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
+3. **`fd`** — file discovery by name/pattern
+4. **`grep` / `find`** — last resort only, when the tools above are genuinely unavailable for the task
+
+(**ast-grep** is deliberately absent — it answers a different question, not a worse version of this one. See the structural branch below.)
 
 The **lexical ladder** is also enforced by a `PreToolUse` hook that fires on every bash command and by a `SubagentStart` hook injected into every sub-agent; the CLAUDE.md wording and hook wording are intentionally identical there. Both branches also reach the **main thread** at `SessionStart` via `preload-search-tools.sh`, which names the `ToolSearch` select query for each family (both are deferred tools) and lists the live turbo-rag corpus roots read from `corpus_roots.json`.
 
 The conceptual branch has no bash verb of its own, so it cannot be enforced the way the ladder is — a conceptual search is a decision, not a command. The one honest signal is the path: running `rg` with a cwd **inside a registered turbo-rag corpus root** earns a nudge toward `hybrid_search` carrying that root's `@handle`. Path-based, never a guess at what the query means, and continuing with `rg` for a literal identifier is explicitly fine.
+
+### Structural searches → ast-grep (a branch, not a rung)
+
+**When you want a syntax shape, go straight to `ast-grep`** — no ladder to walk down first. A text search can only approximate `func ($R $T) FindUserIDByPlatformSub($$$)`, `switch $X { $$$ }` or `repeated string campaign_ids = $A;`; ast-grep matches the tree. Reach for it for definitions, call sites, block shapes, and any pattern where the interesting part is the structure rather than the words.
+
+The **tool registry agrees, and is the enforced surface**: `ast-grep` is not in any `prefer_over` chain for `search-content`, so a structural query draws no demotion nudge. It heads its own `ast-search` category. Inside a **known code repo** (per a project canon's `repos.local.yaml`, or `hooks/tools/code-repo-roots.json`) an `rg` call earns a nudge *toward* ast-grep for structural work — the command's own `cd`/path arguments are read, not just cwd, so the nudge fires from an umbrella-launched session. `rg` remains entirely correct for a literal or plain-text match.
 
 **Never reach for `grep` or `find` by default.** They are familiar but slower, `.gitignore`-unaware, and lack the structured output of modern alternatives. If you find yourself typing `grep -r` or `find .`, stop and use `rg` or `fd` instead.
 
@@ -89,7 +97,7 @@ A `SubagentStart` hook automatically injects guidelines into every sub-agent fro
 ```
 
 **Available slugs:**
-- `tool-hierarchy` — tool selection order (fff MCP → ast-grep → rg → fd → grep)
+- `tool-hierarchy` — tool selection order (fff MCP → rg → fd → grep, plus the separate structural ast-grep branch)
 - `bash-commands` — bash loop/find/grep anti-patterns
 - `vocab-acronyms` — acronym expansion requirement
 
@@ -188,7 +196,7 @@ After a lightpanda session that is worth repeating, `mcp__lightpanda__save` dist
 - **File searching**: `fd` — faster than `find`, respects `.gitignore`, simpler syntax
   - **Umbrella gotcha**: `~/vaults/workspace/.gitignore` excludes the nested corpus repos (`/surge.easygo.io/`, etc.) so the umbrella git repo stays clean. Default `fd`/`rg` run from the umbrella therefore **silently skip those subtrees entirely** — a search returns nothing, not because the file is missing but because the directory was pruned. Fix: scope to the repo (`cd surge.easygo.io` or pass it as an explicit path), or pass `-I`/`--no-ignore` (`-uu` for fully unrestricted) to reach in. Prefer fff MCP / `git -C <repo>` for these nested corpora — they sidestep the umbrella mask. See [[fff-default-root-personal-vault]].
 - **Text searching**: `rg` (ripgrep) — use full language names with `--type` (e.g., `--type ruby`, not `--type rb`)
-- **Syntax-aware searching**: `ast-grep` for structural code search; combine with `rg` for efficiency
+- **Syntax-aware searching**: `ast-grep` — the first choice for a structural query (definitions, call sites, block shapes), not a fallback below `rg`. See the structural branch in Command Tool Order.
 - **Document conversion**: `markitdown` — convert any non-text file or URL to Markdown before reading. Use when the user shares a file Claude cannot read directly. Run `markitdown <file>` (stdout) or `markitdown <file> -o out.md` (file). Hint the format when piping from stdin: `markitdown -x pdf < file.bin`.
   - Supported inputs: PDF, Word (`.docx`), Excel (`.xlsx`/`.xls`), PowerPoint (`.pptx`), EPUB, Outlook email (`.msg`), CSV (→ Markdown tables), Jupyter notebooks (`.ipynb`), HTML, XML/RSS/Atom feeds, images (metadata + optional LLM description), audio/video (metadata + optional transcription), JSON/JSONL, ZIP archives, and URLs
   - **Always run `markitdown` first** on any of the above before attempting to read the raw bytes — do not try to parse binary formats directly.

@@ -71,7 +71,7 @@ tools:
     category: [search-content]
     capability_tags: [content-search, frecency-ranked, indexed]
     prefer_over:
-      search-content: [ast-grep, rg, grep]
+      search-content: [rg, grep]
     compose_with: [Read, mcp__fff__record_access]
     health:
       state: healthy
