@@ -56,7 +56,10 @@ falls to `default_column`. `--show-config` reports how many lanes are declared.
 
 **Rules for the body:**
 
-- One item = one card. Wrapped lines are joined, so hard-wrap freely.
+- **One item = one card, and the card is one sentence.** Wrapped lines are joined, so
+  hard-wrap freely — but the joined result is the *whole* card face. **Aim for 200
+  characters, hard-stop at 300.** See "Terse card, full record" below; this is the rule
+  most often broken.
 - Add a short **Context** paragraph per group, and **date every claim you carry in from
   memory** ("as of the 2026-08-20 park — re-verify"). The register is read days later;
   undated status rots silently.
@@ -67,6 +70,45 @@ falls to `default_column`. `--show-config` reports how many lanes are declared.
 - Do **not** hand-write `<!-- wr:… -->` ids. The sync mints and stamps them.
 - Never *hand*-edit a past day file to reflect new status — move the card on the board and
   run `--reconcile`, which rewrites only the checkbox and marker.
+
+### Terse card, full record
+
+A card face is a **tile in a column**, glanced at beside forty others. The day-file prose
+above it is the **record**, read deliberately through `--show`. Two reading modes, so two
+lengths — and conflating them is what makes a board stop being scannable.
+
+**Everything except the action goes in the prose.** Qualifiers, caveats, measurements,
+alternatives considered, open questions, the reason it matters. Nothing is lost by moving
+it up: `--show <id>` prints the entire group section, prose and all, and `--list` shows
+only faces. The board gets shorter; the record gets richer.
+
+Wrong — one sentence carrying an action, a judgement call, a caveat and an aside:
+
+```markdown
+- [ ] ▶ Hand the data team sample data for the first use case — enough real rows to build
+      the per-user/per-post daily line-graph view against, rather than a schema
+      description. **Which use case is not yet named on this card**: the 12-Aug requirement
+      points at per-creator, per-post performance, but that is my inference from the stated
+      visualisation, not a decision anyone recorded — pin it before extracting anything.
+      Whatever it is, decide the extract's shape and its scrubbing before it leaves
+```
+
+Right — the same content, sorted by reading mode:
+
+```markdown
+The first use case is **not named anywhere**. The 12-Aug requirement points at
+per-creator, per-post performance, but that is inference from the stated visualisation,
+not a recorded decision — pin it before extracting. A per-user sample is creator data, so
+the view it comes from decides its shape and scrubbing.
+
+- [ ] ▶ Hand the data team sample data for the first use case
+```
+
+The face names the action and its object. Everything that made the first version long is
+still on the record, one `--show` away, and now reads as prose instead of a run-on.
+
+**Do not compress by deleting.** If a caveat will not fit, it moves up — it does not
+evaporate. A card shortened by dropping its reasoning is worse than a long one.
 
 ## Keeping the two surfaces in sync
 
@@ -567,6 +609,7 @@ docstrings — `--list --scope <default>` not matching a trackless card, and a c
 | Leaving a corrected day-file item stale on the board | `--refresh` |
 | Read the whole board to find a few cards | `--list --track X --open` |
 | Guess why a card exists from its face | `--show ID` — the day file holds the reasoning |
+| Write a card that must be read rather than glanced at | One sentence, ≤200 chars — every qualifier moves to the prose above it |
 | Restate track status in the register | Link to `Memory/auto/*` / `RESUME.md` |
 | Hardcode a vault path in the engine or skill | Read it from config |
 | Hand-write the binding and the marker for a new vault | `--init PATH` |
