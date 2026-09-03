@@ -1,0 +1,21 @@
+{
+  "_comment": "Config for the Pi->Claude hooks bridge (extensions/claude-hooks-bridge.ts). The extension is the generic engine; this file declares WHICH Claude hook scripts run on which bridged Pi lifecycle event. Same conservative scope as opencode/hooks-bridge.json: only hooks that are harness-agnostic and map cleanly onto Pi's event model are wired.",
+
+  "toolNameMap": {
+    "bash": "Bash",
+    "read": "Read",
+    "write": "Write",
+    "edit": "Edit",
+    "grep": "Grep",
+    "find": "Glob",
+    "ls": "LS"
+  },
+
+  "tool_call": [
+    { "matcher": "bash", "command": "~/.claude/hooks/guard-broad-git.sh" }
+  ],
+
+  "session_shutdown": [
+    { "matcher": "*", "command": "~/.claude/hooks/notify.sh -s done -q" }
+  ]
+}

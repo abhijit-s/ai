@@ -10,6 +10,8 @@ This repository serves two roles:
 
 2. **Plugin marketplace** — standalone plugins under `plugins/` with a root `.claude-plugin/marketplace.json`.
 
+3. **OpenCode and Pi dotfiles** — `opencode/` and `pi/` transpile the Claude-format `agents/`, `skills/`, and `mcp.json` above into each harness's own schema (`make opencode`, `make pi`). See "OpenCode and Pi" below.
+
 ### Installing a Plugin
 
 ```bash
@@ -217,6 +219,16 @@ claude plugin install https://github.com/abhijit-s/ai.git --plugin <plugin-name>
 | **vault-librarian**  | `/vault-librarian` | Curate any Markdown knowledge vault: catalogue, classify, audit, repair frontmatter, rename with link rewrite, check broken links, inject emoji sigils, infer tags, and detect themes. Works with Obsidian, mkdocs, Jekyll, or any `.md` tree with YAML frontmatter. |
 
 ---
+
+## OpenCode and Pi
+
+`opencode/` and `pi/` each transpile this repo's Claude-format `agents/*.md` and `mcp.json` into the target harness's own schema — the Claude files stay the single source of truth, the harness-specific files are generated and never hand-edited. `make opencode` / `make pi` regenerate and re-link everything; `make opencode-check` / `make pi-check` fail if the generated agents have drifted from source.
+
+Skills need no transpile for either harness — Pi implements the same Agent Skills standard as Claude Code, so `pi-skills-link` symlinks `skills/` straight into `~/.pi/agent/skills`.
+
+Pi additionally gets a small hooks bridge (`pi/hooks-bridge.json` + `pi/extensions/claude-hooks-bridge.ts`) wiring the same PreToolUse(bash) guard and Stop notification OpenCode's bridge wires, and an opt-in `spawn_pane_subagent` tool (`pi/extensions/herdr-pane-subagent.ts`) that dispatches a task into a new, visible [herdr](https://herdr.dev)-managed pane — for ordinary delegation, pi-subagents' in-process `Agent` tool remains the default.
+
+`pi/extensions/memory-track.ts` ports the memory-kit `::track` philosophy to Pi: a `::track <name>` directive mid-prompt redirects subsequent native memory writes from the shared `Memory/auto/` dir to a per-track `Memory/auto-<name>/` dir (subtracks are just `/`-delimited names, e.g. `surge/auth-security`), and session start injects the identity layer plus the current track's own recall index. It reads the SAME per-machine corpus registry (`~/.config/memory-kit/config.toml`) via `pi/memory_track_resolve.py` (stdlib Python, no dependency on the Claude plugin's own internal module) — so any repo or vault memory-kit is installed in is picked up automatically, with no code change here. Ledger lives at `~/.pi/agent/memory-track-ledger.json`, keyed by corpus name.
 
 ## MCP Servers
 
