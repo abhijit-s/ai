@@ -15,9 +15,57 @@ import { execFileSync } from "node:child_process";
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+// herdr's documented contract: a server-side error (e.g. agent_pane_busy)
+// exits non-zero with JSON on stderr. Extracted so both herdr() and
+// herdrText() report the same actionable message instead of a raw exec
+// failure.
+function herdrErrorMessage(err: any): string {
+  const stderr: string = typeof err?.stderr === "string" ? err.stderr : "";
+  let message = stderr.trim() || err?.message || String(err);
+  try {
+    message = JSON.parse(stderr)?.error?.message ?? message;
+  } catch {
+    // stderr wasn't JSON -- keep the raw message
+  }
+  return message;
+}
+
+// For control-plane commands (pane split, agent start/prompt) -- these return
+// a JSON envelope on success.
 function herdr(args: string[]): any {
-  const raw = execFileSync("herdr", args, { encoding: "utf-8" });
-  return JSON.parse(raw);
+  try {
+    const raw = execFileSync("herdr", args, { encoding: "utf-8" });
+    return JSON.parse(raw);
+  } catch (err: any) {
+    throw new Error(herdrErrorMessage(err));
+  }
+}
+
+// For read commands (agent/pane read) -- these have NO json output mode
+// (`--format text|ansi` only per herdr's own CLI signature): they dump the
+// pane's actual rendered content as plain text, never a JSON envelope.
+// JSON.parse-ing that content was the source of the "Unexpected token 'p',
+// \"pi_style=...\" is not valid JSON" failure -- whatever the pane happened
+// to render was never JSON to begin with.
+function herdrText(args: string[]): string {
+  try {
+    return execFileSync("herdr", args, { encoding: "utf-8" });
+  } catch (err: any) {
+    throw new Error(herdrErrorMessage(err));
+  }
+}
+
+// Best-effort: close a pane this tool created after a later step failed, so a
+// partial spawn (e.g. split succeeded, agent start hit agent_pane_busy) never
+// leaves an orphaned pane behind. Never throws -- a cleanup failure must not
+// mask the original error.
+function closePaneQuietly(paneId: string): boolean {
+  try {
+    herdr(["pane", "close", paneId]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default function (pi: ExtensionAPI) {
@@ -50,20 +98,36 @@ export default function (pi: ExtensionAPI) {
       }
 
       const direction = params.direction ?? "right";
-      const split = herdr(["pane", "split", "--current", "--direction", direction, "--cwd", process.cwd(), "--no-focus"]);
+      let split;
+      try {
+        split = herdr(["pane", "split", "--current", "--direction", direction, "--cwd", process.cwd(), "--no-focus"]);
+      } catch (err) {
+        return { content: [{ type: "text", text: `herdr pane split failed: ${(err as Error).message}` }] };
+      }
       const paneId = split?.result?.pane?.pane_id;
       if (!paneId) {
         return { content: [{ type: "text", text: `herdr pane split failed: ${JSON.stringify(split)}` }] };
       }
 
-      herdr(["agent", "start", params.name, "--kind", "pi", "--pane", paneId]);
-      herdr(["agent", "prompt", params.name, params.prompt, "--wait", "--timeout", String(params.timeoutMs ?? 120000)]);
-      const read = herdr(["agent", "read", params.name, "--source", "recent-unwrapped", "--lines", "200"]);
-
-      return {
-        content: [{ type: "text", text: read?.result?.text ?? JSON.stringify(read) }],
-        details: { paneId, name: params.name },
-      };
+      // From here on, the pane exists -- any failure must clean it up rather
+      // than leave an orphan (this is what agent_pane_busy left behind before).
+      try {
+        herdr(["agent", "start", params.name, "--kind", "pi", "--pane", paneId]);
+        herdr(["agent", "prompt", params.name, params.prompt, "--wait", "--timeout", String(params.timeoutMs ?? 120000)]);
+        const output = herdrText(["agent", "read", params.name, "--source", "recent-unwrapped", "--lines", "200"]);
+        return {
+          content: [{ type: "text", text: output }],
+          details: { paneId, name: params.name },
+        };
+      } catch (err) {
+        const cleaned = closePaneQuietly(paneId);
+        const note = cleaned
+          ? `Closed pane ${paneId}.`
+          : `WARNING: could not close pane ${paneId} -- check \`herdr agent list\` for an orphan.`;
+        return {
+          content: [{ type: "text", text: `spawn_pane_subagent failed: ${(err as Error).message}\n${note}` }],
+        };
+      }
     },
   });
 }
