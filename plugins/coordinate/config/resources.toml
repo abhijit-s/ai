@@ -18,7 +18,21 @@ default_hold = "10m"
 # The tunnel LIES about its own health — `warpctx current` and "Connected" are
 # NOT proof it reaches the cluster. Only a real in-cluster call that traverses
 # the tunnel proves reachability. This is the mandatory pre-mutation check.
-probe = "kubectl get ns --request-timeout=8s"
+#
+# CONTEXT-PARAMETERIZED probe. A bare `kubectl get ns` uses the kubeconfig's
+# DEFAULT context, which on this machine is `prod` — so probing a Dev lease with
+# it would reachability-test PROD, fail, and falsely report Dev as down. The
+# `{context}` placeholder forces the probe onto the context that MATCHES the
+# claimed profile, resolved from the [resource.warp.contexts] map below. Because
+# the placeholder exists, a warp probe with no resolvable profile->context
+# REFUSES (distinct exit) rather than silently probing the default context.
+probe_template = "kubectl --context {context} get ns --request-timeout=8s"
+
+# profile -> kube context (declarative; edit here, never in code). Contexts per
+# `kubectl config get-contexts`: dev = 066283878314, prod = 909133987739.
+[resource.warp.contexts]
+Dev = "surge-dev"
+Prod = "prod"
 
 [resource.git-tree]
 description = "A shared git working tree — concurrent commits on one dirty tree clobber each other."

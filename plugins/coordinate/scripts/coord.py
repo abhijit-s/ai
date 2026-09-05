@@ -55,7 +55,8 @@ VALID_PRIOS = tuple(PRIO_RANK)
 # Exit codes — scriptable so a skill/hook can branch on the outcome.
 EXIT_OK = 0
 EXIT_QUEUED = 10       # a claim/request did not take the resource; caller waits
-EXIT_PROBE_FAIL = 11   # a reachability probe failed
+EXIT_PROBE_FAIL = 11        # a reachability probe ran and failed
+EXIT_PROBE_UNRESOLVED = 12  # cannot resolve WHAT to probe (no profile->context) — refuse
 EXIT_USER_ERR = 2
 
 
@@ -836,30 +837,92 @@ def cmd_sweep(args):
     return EXIT_OK
 
 
+class ProbeUnresolved(Exception):
+    """The probe cannot determine WHAT to check (no profile->context). Refusing
+    is mandatory: a probe that can pass/fail against the WRONG target is worse
+    than no probe."""
+
+
+def _ctx_lookup(contexts: dict, profile: str | None) -> str | None:
+    """Case-insensitive profile -> context lookup."""
+    if not contexts or profile is None:
+        return None
+    if profile in contexts:
+        return contexts[profile]
+    low = profile.lower()
+    for k, v in contexts.items():
+        if k.lower() == low:
+            return v
+    return None
+
+
+def resolve_probe(meta: dict, profile: str | None, explicit_cmd: str | None = None):
+    """Resolve the probe command to actually run. Returns (cmd, context) where
+    context is the kube context targeted (or None when not context-scoped), or
+    None when no probe is configured. Raises ProbeUnresolved when a
+    context-parameterized probe has no resolvable profile->context — never a
+    silent fall-through to the default context."""
+    if explicit_cmd:
+        return (explicit_cmd, None)  # explicit override: caller's responsibility
+    template = meta.get("probe_template")
+    if template:
+        contexts = meta.get("contexts") or {}
+        if profile is None:
+            raise ProbeUnresolved(
+                "this resource's probe is context-parameterized; pass --profile "
+                f"(one of: {', '.join(sorted(contexts)) or 'none declared'}) or "
+                "probe a held lease that records a profile")
+        context = _ctx_lookup(contexts, profile)
+        if context is None:
+            raise ProbeUnresolved(
+                f"no context mapping for profile '{profile}' "
+                f"(declared: {', '.join(sorted(contexts)) or 'none'})")
+        return (template.format(context=context), context)
+    plain = meta.get("probe")
+    if plain:
+        return (plain, None)
+    return None
+
+
 def cmd_probe(args):
     """Step 5 — verify the real resource state, don't trust the protocol."""
     meta = resource_meta(args.resource)
-    probe = args.cmd or meta.get("probe")
-    if not probe:
+    # Resolve the profile: explicit flag, else the held lease's recorded profile.
+    profile = args.profile
+    if profile is None:
+        with Ledger() as led:
+            holder = led.query(args.resource).get("holder")
+        if holder:
+            profile = holder.get("profile")
+    try:
+        resolved = resolve_probe(meta, profile, args.cmd)
+    except ProbeUnresolved as e:
+        sys.stderr.write(f"# PROBE REFUSED for '{args.resource}': {e}. "
+                         f"Refusing to probe the default context — that could "
+                         f"pass/fail against the WRONG resource.\n")
+        return EXIT_PROBE_UNRESOLVED
+    if resolved is None:
         sys.stderr.write(f"# no probe configured for '{args.resource}'. "
                          f"Verify reachability manually before mutating.\n")
         return EXIT_OK
-    sys.stderr.write(f"# probing '{args.resource}': {probe}\n")
+    probe, context = resolved
+    ctx_note = f" (profile={profile} context={context})" if context else ""
+    sys.stderr.write(f"# probing '{args.resource}'{ctx_note}: {probe}\n")
     try:
         proc = subprocess.run(shlex.split(probe), capture_output=True,
                               text=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        sys.stderr.write(f"# PROBE TIMEOUT after {args.timeout}s — resource NOT reachable.\n")
+        sys.stderr.write(f"# PROBE TIMEOUT after {args.timeout}s{ctx_note} — resource NOT reachable.\n")
         return EXIT_PROBE_FAIL
     except Exception as e:
         sys.stderr.write(f"# PROBE ERROR: {e}\n")
         return EXIT_PROBE_FAIL
     if proc.returncode == 0:
-        sys.stderr.write("# PROBE OK — resource reachable.\n")
+        sys.stderr.write(f"# PROBE OK{ctx_note} — resource reachable.\n")
         if proc.stdout.strip():
             print(proc.stdout.strip())
         return EXIT_OK
-    sys.stderr.write(f"# PROBE FAILED (exit {proc.returncode}) — do NOT mutate.\n")
+    sys.stderr.write(f"# PROBE FAILED (exit {proc.returncode}){ctx_note} — do NOT mutate.\n")
     if proc.stderr.strip():
         sys.stderr.write(proc.stderr.strip() + "\n")
     return EXIT_PROBE_FAIL
@@ -879,6 +942,11 @@ def cmd_resources(args):
             print(f"  default_hold: {meta['default_hold']}")
         if meta.get("probe"):
             print(f"  probe: {meta['probe']}")
+        if meta.get("probe_template"):
+            print(f"  probe_template: {meta['probe_template']}")
+        if meta.get("contexts"):
+            maps = ", ".join(f"{k}->{v}" for k, v in sorted(meta["contexts"].items()))
+            print(f"  profile->context: {maps}")
     return EXIT_OK
 
 
@@ -944,7 +1012,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_sweep)
 
     sp = sub.add_parser("probe", help="verify a resource is actually reachable")
-    sp.add_argument("resource"); sp.add_argument("--cmd", help="override probe command")
+    sp.add_argument("resource")
+    sp.add_argument("--profile", help="profile whose context to probe (e.g. Dev/Prod "
+                                      "for warp); defaults to the held lease's profile")
+    sp.add_argument("--cmd", help="override probe command verbatim (bypasses context mapping)")
     sp.add_argument("--timeout", type=int, default=15)
     sp.set_defaults(func=cmd_probe)
 

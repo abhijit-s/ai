@@ -31,6 +31,7 @@ from coord import (  # noqa: E402
     Ledger, precedence_key, resolve_next, should_preempt, is_expired,
     parse_duration, fmt_duration, coord_line,
     parse_token, enrich_token, dead_reason, reap_reason, reaper_note,
+    resolve_probe, ProbeUnresolved, _ctx_lookup,
 )
 
 
@@ -614,6 +615,118 @@ class TestLivenessCLI(unittest.TestCase):
             self.assertIn("ttl-only", r.stdout)
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+# --- Probe context binding: verify the CLAIMED profile, not the default ------
+WARP_META = {
+    "probe_template": "kubectl --context {context} get ns --request-timeout=8s",
+    "contexts": {"Dev": "surge-dev", "Prod": "prod"},
+}
+
+
+class TestProbeResolve(unittest.TestCase):
+    def test_dev_maps_to_surge_dev(self):
+        cmd, ctx = resolve_probe(WARP_META, "Dev")
+        self.assertEqual(ctx, "surge-dev")
+        self.assertIn("--context surge-dev", cmd)
+        self.assertNotIn("prod", cmd)
+
+    def test_prod_maps_to_prod(self):
+        cmd, ctx = resolve_probe(WARP_META, "Prod")
+        self.assertEqual(ctx, "prod")
+        self.assertIn("--context prod", cmd)
+
+    def test_case_insensitive_profile(self):
+        self.assertEqual(_ctx_lookup(WARP_META["contexts"], "dev"), "surge-dev")
+
+    def test_no_profile_refuses(self):
+        with self.assertRaises(ProbeUnresolved):
+            resolve_probe(WARP_META, None)
+
+    def test_unknown_profile_refuses(self):
+        with self.assertRaises(ProbeUnresolved):
+            resolve_probe(WARP_META, "Staging")
+
+    def test_plain_probe_needs_no_profile(self):
+        cmd, ctx = resolve_probe({"probe": "git status --porcelain"}, None)
+        self.assertIsNone(ctx)
+        self.assertEqual(cmd, "git status --porcelain")
+
+    def test_explicit_cmd_is_verbatim(self):
+        cmd, ctx = resolve_probe(WARP_META, None, explicit_cmd="echo hi")
+        self.assertEqual((cmd, ctx), ("echo hi", None))
+
+    def test_no_probe_configured(self):
+        self.assertIsNone(resolve_probe({"description": "x"}, None))
+
+    def test_shipped_registry_maps_correctly(self):
+        # Guards the ACTUAL config/resources.toml, not just a fixture.
+        meta = coord.resource_meta("warp")
+        self.assertEqual(resolve_probe(meta, "Dev")[1], "surge-dev")
+        self.assertEqual(resolve_probe(meta, "Prod")[1], "prod")
+        with self.assertRaises(ProbeUnresolved):
+            resolve_probe(meta, None)
+
+
+class TestProbeContextCLI(unittest.TestCase):
+    """A mock `kubectl` on PATH records the --context it was invoked with, proving
+    the probe targets the profile's context — never the default (prod)."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp(prefix="ct-", dir="/tmp")
+        self.bin = os.path.join(self.d, "bin")
+        os.makedirs(self.bin)
+        self.record = os.path.join(self.d, "kubectl-args")
+        shim = os.path.join(self.bin, "kubectl")
+        with open(shim, "w") as f:
+            f.write("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > "
+                    + repr(self.record) + "\nexit 0\n")
+        os.chmod(shim, 0o755)
+        self.env = dict(os.environ, COORD_DIR=self.d,
+                        PATH=self.bin + os.pathsep + os.environ["PATH"])
+        self.env.pop("CLAUDE_CODE_MESSAGING_SOCKET", None)
+
+    def tearDown(self):
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def _run(self, *args):
+        return subprocess.run([sys.executable, str(SCRIPTS / "coord.py"), *args],
+                              env=self.env, capture_output=True, text=True)
+
+    def _recorded_context(self):
+        with open(self.record) as f:
+            args = f.read().splitlines()
+        return args[args.index("--context") + 1]
+
+    def test_dev_profile_targets_surge_dev(self):
+        r = self._run("probe", "warp", "--profile", "Dev")
+        self.assertEqual(r.returncode, coord.EXIT_OK)
+        self.assertEqual(self._recorded_context(), "surge-dev")
+        self.assertIn("context=surge-dev", r.stderr)
+
+    def test_prod_profile_targets_prod(self):
+        r = self._run("probe", "warp", "--profile", "Prod")
+        self.assertEqual(r.returncode, coord.EXIT_OK)
+        self.assertEqual(self._recorded_context(), "prod")
+
+    def test_no_profile_refuses_and_never_calls_kubectl(self):
+        r = self._run("probe", "warp")
+        self.assertEqual(r.returncode, coord.EXIT_PROBE_UNRESOLVED)
+        self.assertIn("PROBE REFUSED", r.stderr)
+        self.assertFalse(os.path.exists(self.record),
+                         "kubectl must NOT run when the target is unresolvable")
+
+    def test_held_lease_profile_used_when_flag_omitted(self):
+        # A Dev lease is held; probe with no --profile inherits its profile.
+        self._run("claim", "warp", "--id", "k1", "--profile", "Dev",
+                  "--prio", "P3", "--session", "s1")
+        r = self._run("probe", "warp")
+        self.assertEqual(r.returncode, coord.EXIT_OK)
+        self.assertEqual(self._recorded_context(), "surge-dev")
+
+    def test_unknown_profile_refuses(self):
+        r = self._run("probe", "warp", "--profile", "Staging")
+        self.assertEqual(r.returncode, coord.EXIT_PROBE_UNRESOLVED)
+        self.assertFalse(os.path.exists(self.record))
 
 
 if __name__ == "__main__":

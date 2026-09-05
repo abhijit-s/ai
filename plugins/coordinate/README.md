@@ -44,9 +44,23 @@ coord sweep                              # expire lapsed holds
 coord resources                          # list the registry
 ```
 
-Exit codes: `0` granted/done/reachable, `10` queued (you do not hold — wait), `11` probe failed (do not mutate).
+Exit codes: `0` granted/done/reachable, `10` queued (you do not hold — wait), `11` probe ran and failed (do not mutate), `12` probe refused — cannot resolve what to check.
 
 `claim`/`request` also take `--holder-token <path>` / `--socket <path>` / `--pid <n>`; with none given, `coord` auto-reads `$CLAUDE_CODE_MESSAGING_SOCKET`.
+
+## Context-aware probes (never test the wrong target)
+
+A reachability probe must check the resource *actually claimed*, not whatever the environment defaults to. For `warp`, a bare `kubectl get ns` uses the kubeconfig's default context — `prod` on this machine — so probing a Dev lease that way would test PROD and falsely report Dev down. The registry declares a context-parameterized probe and a profile→context map:
+
+```toml
+[resource.warp]
+probe_template = "kubectl --context {context} get ns --request-timeout=8s"
+[resource.warp.contexts]
+Dev = "surge-dev"
+Prod = "prod"
+```
+
+`coord probe warp --profile Dev` fills `{context}` from the map (`surge-dev`), runs `kubectl --context surge-dev …`, and prints the context it tested. With no `--profile` it uses the held lease's profile. If the profile→context cannot be resolved (no profile, unknown profile, no template match), the probe **refuses with exit `12`** rather than fall through to the default context — a probe that can pass/fail against the wrong resource is worse than none. `--cmd` overrides the command verbatim.
 
 ## Three-layer dead-holder liveness
 
