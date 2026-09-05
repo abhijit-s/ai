@@ -22,7 +22,8 @@ PY           := python3
 
 .DEFAULT_GOAL := help
 .PHONY: help opencode opencode-agents opencode-mcp opencode-link opencode-hooks opencode-check opencode-clean \
-        pi pi-agents pi-mcp pi-skills-link pi-extensions-link pi-check pi-clean
+        pi pi-agents pi-mcp pi-skills-link pi-extensions-link pi-check pi-clean \
+        install-coord test-coord
 
 help: ## Show this help
 	@echo "OpenCode transpile targets:"
@@ -106,3 +107,16 @@ pi-check: ## Fail if generated pi agents are stale vs source (CI/pre-commit guar
 pi-clean: ## Remove generated pi agent files
 	@rm -rf "$(PI_GEN_AGENTS)"
 	@echo "removed $(PI_GEN_AGENTS)"
+
+# --- coordinate plugin -----------------------------------------------------
+COORD_CLI := $(AI_DIR)plugins/coordinate/scripts/coord.py
+LOCAL_BIN := $(HOME)/.local/bin
+
+install-coord: ## Install the `coord` CLI shim into ~/.local/bin (must be on PATH)
+	@mkdir -p "$(LOCAL_BIN)"
+	@printf '#!/usr/bin/env bash\nset -euo pipefail\nexec python3 "%s" "$$@"\n' "$(COORD_CLI)" > "$(LOCAL_BIN)/coord"
+	@chmod +x "$(LOCAL_BIN)/coord"
+	@echo "installed coord -> $(LOCAL_BIN)/coord (targets $(COORD_CLI))"
+
+test-coord: ## Run the coord CLI test suite (stdlib unittest, no deps)
+	@cd "$(AI_DIR)plugins/coordinate/scripts" && $(PY) -m unittest tests.test_coord -v

@@ -1,0 +1,22 @@
+{
+  "name": "coordinate",
+  "displayName": "Coordinate",
+  "version": "1.0.0",
+  "description": "Deterministic coordination for concurrent Claude sessions contending over a shared mutable resource (a git tree, a dev database, a deploy lane, the Cloudflare WARP tunnel). Ships the resource-agnostic COORD protocol as two skills, a stdlib `coord` CLI that extracts the state machine into a flock-serialized shared ledger (claim/release/request/grant/deny/query/status with lease TTLs, priority preemption, and anti-starvation), a reachability-probe registry, three-layer dead-holder liveness (SessionEnd release for clean exit, connect-probe reaping for kill-9, TTL backstop), and a SessionEnd hook.",
+  "author": {
+    "name": "Abhijit Salvi"
+  },
+  "license": "MIT",
+  "keywords": [
+    "coordination",
+    "concurrency",
+    "lease",
+    "lock",
+    "warp",
+    "flock",
+    "priority",
+    "anti-starvation",
+    "multi-session",
+    "protocol"
+  ]
+}

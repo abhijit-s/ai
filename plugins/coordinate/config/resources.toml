@@ -1,0 +1,40 @@
+# coord resource registry — CONFIG, not code.
+#
+# The coord engine is generic: it will coordinate ANY resource name you pass,
+# registered or not. This file only supplies per-resource METADATA — a human
+# description, a default lease, and (the load-bearing one) a reachability
+# `probe` command for step 5 of the protocol ("verify the resource, don't
+# trust the protocol"). `warp` is just one row; adding a resource is an edit
+# here, never a fork of the engine.
+#
+# Fields per [resource.<name>]:
+#   description   human summary (shown by `coord resources`)
+#   default_hold  lease TTL applied when `--hold` is omitted (default 10m)
+#   probe         shell command; exit 0 == reachable. Run by `coord probe`.
+
+[resource.warp]
+description = "Cloudflare WARP tunnel context (selected via warpctx; a switch by any session retargets all). Profiles: Dev / Prod."
+default_hold = "10m"
+# The tunnel LIES about its own health — `warpctx current` and "Connected" are
+# NOT proof it reaches the cluster. Only a real in-cluster call that traverses
+# the tunnel proves reachability. This is the mandatory pre-mutation check.
+probe = "kubectl get ns --request-timeout=8s"
+
+[resource.git-tree]
+description = "A shared git working tree — concurrent commits on one dirty tree clobber each other."
+default_hold = "5m"
+# There is no network probe for a local tree; confirm it is clean/yours before
+# staging. `git status --porcelain` output is advisory context, not a gate.
+probe = "git status --porcelain"
+
+[resource.dev-db]
+description = "An exclusive dev database during a reset, migration, or backfill."
+default_hold = "20m"
+
+[resource.apply-lane]
+description = "A platform terraform apply lane / prod apply approval gate — one apply at a time."
+default_hold = "15m"
+
+[resource.argocd-sync]
+description = "An ArgoCD application sync — a singleton external mutation."
+default_hold = "10m"

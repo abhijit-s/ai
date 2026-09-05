@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ai",
-  "description": "Personal Claude Code plugins — vault-librarian for curating Markdown knowledge vaults, work-register for the daily work register and its Kanban board.",
+  "description": "Personal Claude Code plugins — vault-librarian for curating Markdown knowledge vaults, work-register for the daily work register and its Kanban board, coordinate for deterministic multi-session resource coordination.",
   "owner": {
     "name": "Abhijit Salvi"
   },
@@ -31,6 +31,20 @@
         "source": "git-subdir",
         "url": "https://github.com/abhijit-s/ai.git",
         "path": "plugins/work-register",
+        "ref": "main"
+      }
+    },
+    {
+      "name": "coordinate",
+      "description": "Deterministic coordination for concurrent Claude sessions contending over a shared mutable resource (a git tree, a dev database, a deploy/apply lane, an ArgoCD sync, the Cloudflare WARP tunnel). Ships the resource-agnostic COORD protocol and its WARP specialization as skills, a stdlib `coord` CLI that extracts the state machine into a flock-serialized shared ledger (claim/release/request/grant/deny/query/status with lease TTLs, priority preemption, and anti-starvation), a config-driven reachability-probe registry, and a SessionEnd hook that releases a session's leases on exit.",
+      "author": {
+        "name": "Abhijit Salvi"
+      },
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/abhijit-s/ai.git",
+        "path": "plugins/coordinate",
         "ref": "main"
       }
     }
