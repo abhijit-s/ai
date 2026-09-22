@@ -72,7 +72,6 @@ flowchart LR
         int["/interview"]
         dcr["/daily-claude-code-recap"]
         go["/github-overview"]
-        nico["/nico"]
         sn["/slack-notify"]
     end
 
@@ -122,7 +121,7 @@ flowchart LR
     classDef skill fill:#38a169,stroke:#276749,color:#fff
     classDef plugin fill:#805ad5,stroke:#553c9a,color:#fff
 
-    class cm,cpr,fd,ri,ea,apr,rd,pub,int,dcr,go,nico,sn workflow
+    class cm,cpr,fd,ri,ea,apr,rd,pub,int,dcr,go,sn workflow
     class ce,ca,cr,cf,ar,pr,pcr,com,prc,dr,docr,sk agent
     class fdd,wcs,wcp,wdoc,tm,odl skill
     class kbc plugin
@@ -147,7 +146,6 @@ flowchart LR
 | `/interview`               | Interview user about a plan before implementation  |
 | `/daily-claude-code-recap` | Summarize the day's Claude Code sessions           |
 | `/github-overview`         | GitHub PR dashboard for organization               |
-| `/nico`                    | General-purpose notification dispatcher (Slack, email) |
 | `/slack-notify`            | Send a structured notification to a Slack channel  |
 
 ### Execution Flow Examples
