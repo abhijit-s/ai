@@ -230,6 +230,8 @@ Avoid temporal references: "vs previous", "used to be X", "now uses Y", "the new
 
 **Test**: If it would be unclear in 6 months, remove it. Exception: `CHANGELOG.md` documents changes over time.
 
+**Never hard-wrap prose to a column width.** Write one logical line per paragraph, list item, or table row, and let the renderer wrap. Mid-sentence newlines inserted "to protect width" break Slack and chat paste, corrupt `grep`/`rg` matches that span the break, and produce noisy one-word diffs when a sentence is later edited. This applies to everything authored — vault notes, repo docs, commit bodies, PR descriptions, and drafted messages. Code fences, tables, and YAML keep their own line structure. The `knowledge-audit:audit-reflow` skill fixes existing width-wrapped files.
+
 ## Diagrams & Visual Communication
 
 **Reach for diagrams whenever a picture beats prose.** A well-placed diagram collapses paragraphs of explanation into an instantly scannable visual — use them proactively, not just when asked.
@@ -303,9 +305,21 @@ For complex work spanning multiple sessions:
 
 ## Response Style
 
+**VERBOSITY: LOW is the default.** Bullets over prose as a stringent rule. Lead with the answer; expand underneath only when the detail is load-bearing.
+
+**Ticket and issue-tracker writing (Jira, GitHub, Linear) is terse by default.** Three rules:
+
+- **Attach a TL;DR** to every ticket description, and to comments/updates whenever the body runs past a screen. The human reader should get the verdict in one or two lines without scrolling.
+- **Bullets, not paragraphs.** Evidence goes in a list or a small table, one claim per line with its `path:line`.
+- **Details expand below the TL;DR**, clearly separated, so a reader can stop early.
+
+Long-form is the exception, taken deliberately — an audit trail, a retraction, or a money-path decision record where omitting evidence would mislead. Even then the TL;DR leads.
+
 **Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (e.g. ✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
 
 **🏁 is the universal "resolved" marker; unresolved states use other icons — never 🏁.** Attach 🏁 to anything done/resolved/closed: a fixed blocker, a completed task, a merged PR, a settled decision. Signal *unresolved* states with a different emoji instead — 🔴 open blocker, ⏳ in-progress / waiting, ⚠️ caution / needs-attention, ▶ next — and never put 🏁 on something still in flight. A red flag that has since been fixed therefore reads 🔴🏁 (was blocking, now closed) with a one-line note of how. The owner scans status by emoji, so 🏁 must mean "closed" unambiguously: never leave a resolved item marked only with an open-state icon, and never mark an in-flight item with 🏁.
+
+**Show file paths long, not bare.** When naming a file in a response, give enough path to locate and act on it without a search — prefer the full absolute path, or at minimum a path rooted at the repo/corpus root. A bare basename (`config.go`, `00-README.md`) is ambiguous across a multi-repo tree and forces the reader to hunt. Applies to prose, tables, and summaries alike; `path:line` stays the form when citing a specific line. The one exception is a run of files already established as living in one directory named immediately above — then bare names are fine within that block.
 
 ## Vocabulary
 
