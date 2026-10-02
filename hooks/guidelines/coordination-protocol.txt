@@ -1,0 +1,37 @@
+Other Claude sessions may run on this machine at the same time as you and can
+contend for a SHARED MUTABLE RESOURCE — state a switch or write by one session
+changes for all of them: the shared Cloudflare WARP tunnel (Cloudflare's
+zero-trust client / VPN (virtual private network), selected via `warpctx`), a
+shared git working tree or branch, an exclusive dev environment or database, a
+deploy/apply lane (e.g. a platform terraform apply), an ArgoCD (GitOps
+continuous-delivery tool) app sync, or any other singleton external resource.
+
+Before you claim or switch one of these, check `ListAgents` for peers. If none
+are found, or none touch this resource, skip the ceremony below entirely and
+just proceed — the machinery only earns its cost when a real contender exists.
+
+Two skills back this, both backed by the `coord` CLI (a flock-serialized
+shared ledger under `/tmp/cc-coord/` — deterministic outcomes, never a race):
+
+- `coordinate:warp-coordinate` — reach for this FIRST whenever the resource is
+  the shared WARP tunnel (a `warpctx ensure <profile>` before kubectl,
+  terraform apply, `argocd sync/get`, or any in-cluster read, when you are not
+  certain you are the only session on it).
+- `coordinate:coordinate` — the generic protocol for every other shared
+  resource (git tree/branch, dev DB, apply lane, ArgoCD sync, …). Invoke this
+  when the contended resource has no dedicated specialization skill of its own.
+
+Core flow once a real contender exists: `coord claim <resource> --prio P0..P3
+--hold <ttl> --session $CLAUDE_SESSION_ID` (exit 0 = you hold, exit 10 =
+queued) → broadcast the printed `COORD CLAIM ...` line via `SendMessage` →
+`coord probe <resource>` to verify the resource is ACTUALLY free before you
+mutate it (the protocol is advisory; trust the probe, not the claim) → do the
+work without relinquishing mid-operation → `coord release <resource> --id
+<id>` when done, which promotes the next waiter automatically. A strictly
+higher-priority `REQUEST` from a peer is not optional — honor it (`coord grant
+--re <id>`) once your current non-interruptible step finishes.
+
+Full protocol detail (verbs, priority ladder, lease/anti-starvation rules,
+worked examples) lives in the `coordinate:coordinate` and
+`coordinate:warp-coordinate` skills themselves — invoke the skill rather than
+hand-rolling the ledger calls from memory.
