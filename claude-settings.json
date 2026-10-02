@@ -269,14 +269,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s info -q"
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || [ \"${TUIOS_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s info -q"
           }
         ]
       },
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -349,7 +349,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -369,7 +369,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -450,7 +450,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -483,29 +483,9 @@
         ]
       },
       {
-        "matcher": "*",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/herdr-agent-state.sh session",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash '/Users/a.salvi/.claude/hooks/herdr-agent-state.sh' session",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -518,7 +498,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s done -q"
+            "command": "[ \"${HERDR_ENV:-}\" = \"1\" ] || [ \"${TUIOS_ENV:-}\" = \"1\" ] || ~/.claude/hooks/notify.sh -s done -q"
           }
         ]
       },
@@ -535,7 +515,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -562,6 +542,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "tuios agent-hook claude-code --integration 3",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -572,6 +561,15 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/handle-expansion-stop.py",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "tuios agent-hook claude-code --integration 3",
+            "timeout": 5,
+            "type": "command"
           }
         ]
       }
@@ -590,25 +588,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.dotfiles/ai/hooks/herdr-agent-name.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "tuios agent-hook claude-code --integration 2",
-            "timeout": 5,
-            "type": "command"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "~/.dotfiles/ai/hooks/tuios-agent-name.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "tuios agent-hook claude-code --integration 3",
+            "timeout": 5,
+            "type": "command"
           }
         ]
       }
@@ -617,7 +607,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 310,
             "type": "command"
           }
@@ -628,7 +618,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -639,7 +629,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -650,7 +640,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
@@ -661,7 +651,7 @@
       {
         "hooks": [
           {
-            "command": "tuios agent-hook claude-code --integration 2",
+            "command": "tuios agent-hook claude-code --integration 3",
             "timeout": 5,
             "type": "command"
           }
