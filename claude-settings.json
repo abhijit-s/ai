@@ -602,6 +602,15 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.dotfiles/ai/hooks/tuios-agent-name.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PermissionRequest": [
