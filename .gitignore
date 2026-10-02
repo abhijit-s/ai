@@ -109,6 +109,11 @@ htmlcov/
 # Claude / AI tooling
 .claude/local/
 .claude/settings.local.json
+
+# Deleted skills, kept only so a delete can be undone locally.
+skills/.trash/
+# Skill sync buckets, named by machine-local UUID and meaningless elsewhere.
+skills/synced/
 # Python-generated files
 __pycache__/
 *.py[oc]
