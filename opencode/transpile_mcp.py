@@ -26,6 +26,26 @@ from pathlib import Path
 REMOTE_TYPES = {"http", "sse", "remote"}
 
 
+def expand_home(obj):
+    """Expand ``${HOME}`` through every string, as generate-mcp.sh already does.
+
+    mcp.json stores ``${HOME}``-relative paths so a fresh checkout is portable.
+    generate-mcp.sh expands them before handing the file to its consumers; this
+    transpiler did not, so ``shutil.which("${HOME}/.pencil/...")`` returned None
+    for every server whose command is written that way. Those servers were then
+    reported as "executable not on PATH" and, because mcp.json declares them,
+    pruned from the target config -- silently dropping working servers whose
+    binaries were present all along.
+    """
+    if isinstance(obj, str):
+        return obj.replace("${HOME}", str(Path.home()))
+    if isinstance(obj, list):
+        return [expand_home(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: expand_home(v) for k, v in obj.items()}
+    return obj
+
+
 def to_opencode(spec: dict) -> dict | None:
     """Project one Claude mcpServers entry onto OpenCode's schema.
 
@@ -60,7 +80,7 @@ def main() -> int:
         Path.home() / ".config" / "opencode" / "opencode.json",
     ))
 
-    servers = json.loads(src.read_text()).get("mcpServers", {})
+    servers = expand_home(json.loads(src.read_text()).get("mcpServers", {}))
     transpiled = {n: e for n, spec in servers.items()
                   if (e := to_opencode(spec)) is not None}
     skipped = servers.keys() - transpiled.keys()
@@ -70,8 +90,10 @@ def main() -> int:
     }
     mcp = config.setdefault("mcp", {})
     # Prune servers we own (present in mcp.json) but are no longer emitting,
-    # so a now-uninstalled CLI drops out. Hand-added servers (e.g. pencil) that
-    # mcp.json never declared are left untouched.
+    # so a now-uninstalled CLI drops out. Servers mcp.json never declared are
+    # left untouched. Note this prune is why a which() miss is destructive
+    # rather than merely incomplete: a declared server that fails to resolve is
+    # deleted from the target, so any per-target tuning of it goes with it.
     for name in servers.keys() & mcp.keys():
         if name in skipped:
             del mcp[name]
