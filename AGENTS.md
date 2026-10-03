@@ -315,7 +315,20 @@ For complex work spanning multiple sessions:
 
 Long-form is the exception, taken deliberately — an audit trail, a retraction, or a money-path decision record where omitting evidence would mislead. Even then the TL;DR leads.
 
-**Use emojis in responses to add visual appeal and sharpen the message.** Deploy them to anchor key points, mark section transitions, and signal status (e.g. ✅ done, ⚠️ caution, 🔴 blocker, ▶ next). Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
+**Use emojis in responses to add visual appeal and sharpen the message.** Favor impact over decoration — an emoji should help the reader scan and land the point, not clutter the prose. When in doubt, a few well-placed markers beat a scattering of them.
+
+**The status markers are RESERVED FOR STATUS — never use one for emphasis.** The owner scans status by emoji, so a status marker on a non-status point reports a state that does not exist: a 🔴 used to mean "important" reads as an OPEN blocker, and on a money path that is a false alarm. If a point is merely important, reach for a non-status marker (🔑 the crux, 📌 worth remembering, 🧭 orientation) or no emoji at all. *"This deserves attention"* is not a status; *"this is unresolved"* is.
+
+| Marker | Means | Never use it for |
+| ------ | ----- | ---------------- |
+| 🏁 | done / resolved / closed | anything still in flight |
+| 🔴 | **OPEN** blocker — work is stopped | emphasis, severity, or an already-fixed blocker |
+| ⚠️ | unresolved, needs attention, not blocking | a caveat already handled |
+| ⏳ | in progress / waiting on something | work not yet started |
+| ▶ | the next action | one already taken |
+| 🔑 | key insight — explicitly NOT a status | status of any kind |
+
+Use **🏁**, not ✅, for done: ONE resolved-marker, so a scan never has to ask whether two symbols mean the same thing.
 
 **🏁 is the universal "resolved" marker; unresolved states use other icons — never 🏁.** Attach 🏁 to anything done/resolved/closed: a fixed blocker, a completed task, a merged PR, a settled decision. Signal *unresolved* states with a different emoji instead — 🔴 open blocker, ⏳ in-progress / waiting, ⚠️ caution / needs-attention, ▶ next — and never put 🏁 on something still in flight. A red flag that has since been fixed therefore reads 🔴🏁 (was blocking, now closed) with a one-line note of how. The owner scans status by emoji, so 🏁 must mean "closed" unambiguously: never leave a resolved item marked only with an open-state icon, and never mark an in-flight item with 🏁.
 
